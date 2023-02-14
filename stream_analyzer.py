@@ -19,7 +19,7 @@ class StreamAnalyzer:
 
         self.epsilon = 1
 
-    def load_residuals(self, fnames):
+    def load_residuals(self, fnames, max_num=10000):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -35,14 +35,15 @@ class StreamAnalyzer:
 
         sorted_ind = np.argsort(self.display_nums)
 
-        self.frame_types = self.frame_types[sorted_ind]
-        self.stream_nums = self.stream_nums[sorted_ind]
-        self.display_nums = self.display_nums[sorted_ind]
-        self.residuals = self.residuals[sorted_ind]
+        self.frame_types = self.frame_types[sorted_ind][:max_num]
+        self.stream_nums = self.stream_nums[sorted_ind][:max_num]
+        self.display_nums = self.display_nums[sorted_ind][:max_num]
+        self.residuals = self.residuals[sorted_ind][:max_num]
 
-    def visualize(self):
-        # fig = plt.figure(figsize=(20, 5))
-        fig, ax = plt.subplots(figsize=(8, 6))
+
+
+    def visualize(self, save_fname=None):
+        fig, ax = plt.subplots(figsize=(20, 5))
 
         colors = []
         for type in self.frame_types:
@@ -59,6 +60,15 @@ class StreamAnalyzer:
         if self.detected_result is not None:
             for i in self.detected_result[3]:
                 colors[i] = 'cyan'
+                plt.text(x=i, y=self.residuals[i]+0.1, s=str(i),
+                         horizontalalignment='center',
+                         verticalalignment='center')
+
+            p, b, NFA, _ = self.detected_result
+            plt.text(x=2, y=self.residuals.max(), s=f"periodicity={p} \noffset={b} \nNFA={NFA}",
+                     horizontalalignment='center',
+                     verticalalignment='center',
+                     ha='left', va='top')
 
         bars = ax.bar(self.display_nums, self.residuals, color=colors)
 
@@ -67,19 +77,14 @@ class StreamAnalyzer:
         color_patches.append(mpatches.Patch(color='blue', label='P frame'))
         color_patches.append(mpatches.Patch(color='green', label='B frame'))
         if self.detected_result is not None:
-            color_patches.append(mpatches.Patch(color='cyan', label='detected frame'))
+            color_patches.append(mpatches.Patch(color='cyan', label='detected change frame'))
         ax.legend(handles=color_patches)
-
 
         plt.xlabel('frame number')
         plt.ylabel('residual')
-
         plt.title('Frame residual')
 
-        # mplcursors.cursor(bars)
-
         cursor = mplcursors.cursor(hover=mplcursors.HoverMode.Transient)
-
         @cursor.connect("add")
         def on_add(sel):
             x, y, width, height = sel.artist[sel.index].get_bbox().bounds
@@ -89,6 +94,9 @@ class StreamAnalyzer:
 
         # plt.xticks(frame_numbers)
         # plt.yticks(np.arange(0, residuals.max(), 10))
+
+        if save_fname is not None:
+            plt.savefig(save_fname, bbox_inches='tight')
 
         plt.show()
 
@@ -105,28 +113,41 @@ class StreamAnalyzer:
         # the candidate (pi, bi) has periodic indices within the range [d, n-d)
         positions = np.arange((bij - d) % pi + d, n - d, pi)
         positions_corrected = []
+
+        # debug:
+        # for pos in positions:
+        #     while self.frame_types[pos] != 'P':
+        #         pos += 1
+        #     positions_corrected.append(pos)
+
         for pos in positions:
-            while self.frame_types[pos] != 'P':
-                pos += 1
-            positions_corrected.append(pos)
+            while pos < len(self.frame_types):
+                if self.frame_types[pos] != 'P':
+                    pos += 1
+                else:
+                    positions_corrected.append(pos)
+                    break
+
         positions_valid = []
 
         k = 0
         for pos in positions_corrected:
-            delta = 1
+            # compare the pivot with residuals on the left side
+            delta = -1
             count = 0
             valid = True
-            while count < d and pos - delta >= 0:
-                if self.frame_types[pos - delta] == 'P':
+            while count < d and pos + delta >= 0:
+                if self.frame_types[pos + delta] == 'P':
                     count += 1
-                    if self.residuals[pos] < self.residuals[pos - delta]:
+                    if self.residuals[pos] < self.residuals[pos + delta]:
                         valid = False
                         break
-                delta += 1
+                delta -= 1
 
             if not valid:
                 continue
 
+            # compare the pivot with residuals on the right side
             delta = 1
             count = 0
             while count < d and pos + delta < n:
@@ -142,7 +163,7 @@ class StreamAnalyzer:
                 positions_valid.append(pos)
 
         prob = 1 / (2 * d + 1)
-        NFA = scipy.stats.binom.sf(k - 0.5, len(positions), prob, loc=0) * pi * (( n - 1) // 2 - 2 * d)
+        NFA = scipy.stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
         return NFA, positions_valid
 
@@ -151,6 +172,9 @@ class StreamAnalyzer:
 
         :param d: the range of neighborhood to valid a peak residual.
         """
+
+        assert d >= 1, "the range of neighborhood must be larger than 1"
+
         detected_results = []
         for p in range(2 * d, len(self.residuals) // 2):
             for b in range(0, p):
@@ -160,6 +184,7 @@ class StreamAnalyzer:
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
+            print("No periodic residual sequence is detected.")
             return
 
         best_NFA = self.epsilon
@@ -179,7 +204,7 @@ def compute_residual(img_res):
     """
     img_res = np.abs(img_res)
     # block_reduce(img_res, block_size=(8, 8), func=np.mean)
-    return np.mean(img_res)
+    return np.mean(img_res[0:, :])
 
 
 def main():
@@ -187,11 +212,14 @@ def main():
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
     analyzer = StreamAnalyzer()
-    analyzer.load_residuals(fnames)
+    analyzer.load_residuals(fnames, max_num=10000)
 
-    analyzer.visualize()
-    analyzer.detect_periodic_signal(d=6)
-    analyzer.visualize()
+    vis_fname = None
+    # vis_fname = "residuals_Y_c2.eps"
+    analyzer.visualize(vis_fname)
+    analyzer.detect_periodic_signal(d=3)
+    # vis_fname = "detection_Y_c2.eps"
+    analyzer.visualize(vis_fname)
 
 
 if __name__ == '__main__':
