@@ -38,8 +38,6 @@ class PRED:
 
         # PRED_arr[::31, :] = PRED_arr[1::31, :].copy()
 
-
-
         S_JSD_arr = []
 
         # first element
@@ -55,13 +53,23 @@ class PRED:
         S_JSD_arr = np.array(S_JSD_arr)
         S_MF_arr = median_filter(S_JSD_arr)
         self.S_PRED = np.maximum(S_JSD_arr - S_MF_arr, 0)
-        self.S_PRED[self.frame_types == 'I'] = 0
+
+        
 
         sorted_indices = np.argsort(self.display_nums)
         self.S_PRED = self.S_PRED[sorted_indices]
         self.display_nums = self.display_nums[sorted_indices]
         self.stream_nums = self.stream_nums[sorted_indices]
         self.frame_types = self.frame_types[sorted_indices]
+
+        # suppress I frames
+        for t in np.where(self.frame_types == 'I')[0]:
+            if t == 0:
+                self.S_PRED[t] = self.S_PRED[t+1]
+            elif t == len(self.S_PRED) - 1:
+                self.S_PRED[t] = self.S_PRED[t-1]
+            else:
+                self.S_PRED[t] = (self.S_PRED[t-1] + self.S_PRED[t+1]) / 2
 
     def load_from_ckpt(self, ckpt_fname):
         try:
@@ -147,10 +155,10 @@ class PRED:
             res = compute_phi(self.S_PRED, c, P)
             phi_arr[i] = res
 
-            print(f"c={c}, phi={res}")
+            # print(f"c={c}, phi={res}")
 
         G1 = C[np.argmax(phi_arr)]
-        print("The estimated G1 is", G1)
+        # print("The estimated G1 is", G1)
 
         threshold = -100000 # TODO: what's the value?
 
@@ -217,7 +225,7 @@ def compute_phi(S, c, P) -> float:
     """
     T = len(S)
     indices = np.arange(0, T, c)
-    phi_1 = np.mean(S[np.intersect1d(indices, P)])
+    phi_1 = np.sum(S[np.intersect1d(indices, P)])
 
     beta = np.max(S) * 0.3
     phi_2 = beta * (len(indices) - len(np.intersect1d(indices, P)))
@@ -225,7 +233,7 @@ def compute_phi(S, c, P) -> float:
     phi_3_arr = []
     for z in range(1, c):
         indices = np.arange(0, T, z)
-        phi_3 = np.mean(S[indices])
+        phi_3 = np.sum(S[indices])
         phi_3_arr.append(phi_3)
 
     phi_3 = np.max(np.array(phi_3_arr))
@@ -241,6 +249,7 @@ def test():
 
     analyzer = PRED()
     analyzer.load_from_frames(fnames, max_num=1000)
+    analyzer.visualize()
     GOP = analyzer.detect_periodic_signal()
     analyzer.visualize(None)
 

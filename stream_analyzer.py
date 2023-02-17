@@ -1,13 +1,12 @@
 import numpy as np
-from skimage.measure import block_reduce
 import os
 import glob
 import matplotlib.pyplot as plt
 import mplcursors
-import scipy
-from skimage.util.shape import view_as_blocks
+from scipy import stats
+# from skimage.util.shape import view_as_blocks
 import matplotlib.patches as mpatches
-
+import torch
 
 class StreamAnalyzer:
     def __init__(self):
@@ -19,7 +18,7 @@ class StreamAnalyzer:
 
         self.epsilon = 1
 
-    def load_residuals(self, fnames, max_num=10000):
+    def load_from_frames(self, fnames, max_num=10000):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -40,6 +39,23 @@ class StreamAnalyzer:
         self.display_nums = self.display_nums[sorted_ind][:max_num]
         self.residuals = self.residuals[sorted_ind][:max_num]
 
+    def load_from_ckpt(self, ckpt_fname):
+        try:
+            checkpoint = torch.load(ckpt_fname)
+            self.residuals = checkpoint["residuals"]
+            self.frame_types = checkpoint["frame_types"]
+            return True
+        except:
+            return False
+    
+    def save_to_ckpt(self, ckpt_fname):
+        dir = os.path.dirname(ckpt_fname)
+        os.makedirs(dir, exist_ok=True)
+        torch.save({
+            "residuals": self.residuals,
+            "frame_types": self.frame_types
+        }, ckpt_fname)
+        return True
 
 
     def visualize(self, save_fname=None):
@@ -163,7 +179,7 @@ class StreamAnalyzer:
                 positions_valid.append(pos)
 
         prob = 1 / (2 * d + 1)
-        NFA = scipy.stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
+        NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
         return NFA, positions_valid
 
@@ -181,7 +197,7 @@ class StreamAnalyzer:
             for b in range(0, p):
                 NFA, tested_indices = self.compute_NFA(p, b, d)
                 if NFA < self.epsilon:
-                    print(f"periodicity={p} offset={b} NFA={NFA}")
+                    # print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
@@ -216,7 +232,7 @@ def main():
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
     analyzer = StreamAnalyzer()
-    analyzer.load_residuals(fnames, max_num=10000)
+    analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
     # vis_fname = "residuals_Y_c2.eps"

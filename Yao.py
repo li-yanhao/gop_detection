@@ -5,6 +5,8 @@ import glob
 import matplotlib.pyplot as plt
 import mplcursors
 import cv2
+import torch
+
 
 
 class YAO:
@@ -16,12 +18,12 @@ class YAO:
 
         self.SODBs = None
 
-    def load_SODB(self, vid_fname):
+    def load_SODB(self, vid_fname, ffprobe_exe="ffprobe"):
         """
         :param vid_fname: input video filename
         :return: a list of packet sizes in bytes
         """
-        command = f"ffprobe -show_frames {vid_fname} | grep pkt_size"
+        command = f"{ffprobe_exe} -show_frames {vid_fname} | grep pkt_size"
 
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         result = result.stdout
@@ -31,7 +33,7 @@ class YAO:
 
         self.SODBs = np.array(pkt_sizes)
 
-    def load_frame_info(self, fnames, max_num=10000):
+    def load_from_frames(self, fnames, max_num=10000):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -137,6 +139,22 @@ class YAO:
             return None
 
 
+    def load_from_ckpt(self, ckpt_fname):
+        try:
+            checkpoint = torch.load(ckpt_fname)
+            self.Et_features = checkpoint["Et_features"]
+            return True
+        except:
+            return False
+    
+    def save_to_ckpt(self, ckpt_fname):
+        dir = os.path.dirname(ckpt_fname)
+        os.makedirs(dir, exist_ok=True)
+        torch.save({
+            "Et_features": self.Et_features
+        }, ckpt_fname)
+        return True
+        
 
 
 if __name__ == '__main__':
@@ -148,7 +166,7 @@ if __name__ == '__main__':
 
     analyzer = YAO()
     analyzer.load_SODB(vid_fname)
-    analyzer.load_frame_info(fnames)
+    analyzer.load_from_frames(fnames)
     analyzer.preprocess()
 
 
