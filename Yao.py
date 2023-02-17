@@ -112,7 +112,7 @@ class YAO:
         self.Et_features = self.SODBs * self.SMB_features
         self.Et_features[I_indices] = self.SODBs[I_indices] / self.SMB_features[I_indices]
 
-    def detect(self):
+    def detect_periodic_signal(self):
         T = len(self.Et_features)
         G_max = min(150, T // 10)
         G_candidates = np.arange(2, G_max+1)
@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     analyzer.visualize()
 
-    G1 = analyzer.detect()
+    G1 = analyzer.detect_periodic_signal()
     print("Detected G1 = ", G1)
 
     analyzer.visualize()

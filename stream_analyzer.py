@@ -171,6 +171,7 @@ class StreamAnalyzer:
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
 
         :param d: the range of neighborhood to valid a peak residual.
+        :return: the detected periodicity
         """
 
         assert d >= 1, "the range of neighborhood must be larger than 1"
@@ -185,7 +186,7 @@ class StreamAnalyzer:
 
         if len(detected_results) == 0:
             print("No periodic residual sequence is detected.")
-            return
+            return None
 
         best_NFA = self.epsilon
         best_i = 0
@@ -195,6 +196,9 @@ class StreamAnalyzer:
                 best_i = i
 
         self.detected_result = detected_results[best_i]
+
+        # return the periodicity
+        return self.detected_result[0]
 
 
 def compute_residual(img_res):

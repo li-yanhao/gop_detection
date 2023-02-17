@@ -117,7 +117,7 @@ class Vazquez:
 
         plt.show()
 
-    def estimate_GOP(self):
+    def detect_periodic_signal(self):
         # P = np.where(self.S_PRED > 0)[0]
         # T = len(self.S_PRED)
 
@@ -189,7 +189,7 @@ def test():
     analyzer.load_residuals(fnames, max_num=1000)
     analyzer.preprocess()
     # analyzer.visualize()
-    GOP = analyzer.estimate_GOP()
+    GOP = analyzer.detect_periodic_signal()
     print("GOP:", GOP)
 
 

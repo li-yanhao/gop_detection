@@ -4,6 +4,7 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import mplcursors
+import torch
 
 
 epsilon = 1e-5
@@ -18,7 +19,7 @@ class PRED:
 
         self.S_PRED = None
 
-    def load_residuals(self, fnames, max_num=10000):
+    def load_from_frames(self, fnames, max_num=10000):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -61,6 +62,23 @@ class PRED:
         self.display_nums = self.display_nums[sorted_indices]
         self.stream_nums = self.stream_nums[sorted_indices]
         self.frame_types = self.frame_types[sorted_indices]
+
+    def load_from_ckpt(self, ckpt_fname):
+        try:
+            checkpoint = torch.load(ckpt_fname)
+            self.S_PRED = checkpoint["S_PRED"]
+            return True
+        except:
+            return False
+    
+    def save_to_ckpt(self, ckpt_fname):
+        dir = os.path.dirname(ckpt_fname)
+        os.makedirs(dir, exist_ok=True)
+        torch.save({
+            "S_PRED": self.S_PRED
+        }, ckpt_fname)
+        return True
+        
 
     def visualize(self, save_fname=None):
         fig, ax = plt.subplots(figsize=(20, 5))
@@ -106,7 +124,7 @@ class PRED:
 
         plt.show()
 
-    def estimate_GOP(self):
+    def detect_periodic_signal(self):
         P = np.where(self.S_PRED > 0)[0]
         T = len(self.S_PRED)
 
@@ -222,8 +240,8 @@ def test():
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
     analyzer = PRED()
-    analyzer.load_residuals(fnames, max_num=1000)
-    GOP = analyzer.estimate_GOP()
+    analyzer.load_from_frames(fnames, max_num=1000)
+    GOP = analyzer.detect_periodic_signal()
     analyzer.visualize(None)
 
 
