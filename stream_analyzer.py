@@ -39,6 +39,44 @@ class StreamAnalyzer:
         self.display_nums = self.display_nums[sorted_ind][:max_num]
         self.residuals = self.residuals[sorted_ind][:max_num]
 
+    def preprocess(self, d):
+        self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
+        P_indices = np.where(self.frame_types == 'P')[0]
+        for pivot in P_indices:
+            delta = -1
+            count = 0
+            while count < d and pivot + delta >= 0:
+                if self.frame_types[pivot + delta] == 'P':
+                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                        break
+                    else:
+                        count += 1
+                delta -= 1
+
+            if count < d:
+                continue
+
+            # compare the pivot with residuals on the right side
+            delta = 1
+            count = 0
+            while count < d and pivot + delta < len(self.residuals):
+                if self.frame_types[pivot + delta] == 'P':
+                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                        break
+                    else:
+                        count += 1
+                delta += 1
+
+            if count == d:
+                self.valid_peak_mask[pivot] = True
+                pivot -= 1
+                while self.frame_types[pivot] != 'P':
+                    self.valid_peak_mask[pivot] = True
+                    pivot -= 1
+
+        print("valid peak pos:")
+        print(np.where(self.valid_peak_mask)[0])
+
     def load_from_ckpt(self, ckpt_fname):
         try:
             checkpoint = torch.load(ckpt_fname)
@@ -47,7 +85,7 @@ class StreamAnalyzer:
             return True
         except:
             return False
-    
+
     def save_to_ckpt(self, ckpt_fname):
         dir = os.path.dirname(ckpt_fname)
         os.makedirs(dir, exist_ok=True)
@@ -128,60 +166,59 @@ class StreamAnalyzer:
 
         # the candidate (pi, bi) has periodic indices within the range [d, n-d)
         positions = np.arange((bij - d) % pi + d, n - d, pi)
-        positions_corrected = []
 
-        # debug:
-        # for pos in positions:
-        #     while self.frame_types[pos] != 'P':
-        #         pos += 1
-        #     positions_corrected.append(pos)
+        k = (self.valid_peak_mask[positions]).sum()
 
-        for pos in positions:
-            while pos < len(self.frame_types):
-                if self.frame_types[pos] != 'P':
-                    pos += 1
-                else:
-                    positions_corrected.append(pos)
-                    break
+        visualize = False
+        if visualize:
+            positions_corrected = []
 
-        positions_valid = []
-
-        k = 0
-        for pos in positions_corrected:
-            # compare the pivot with residuals on the left side
-            delta = -1
-            count = 0
-            valid = True
-            while count < d and pos + delta >= 0:
-                if self.frame_types[pos + delta] == 'P':
-                    count += 1
-                    if self.residuals[pos] < self.residuals[pos + delta]:
-                        valid = False
+            for pos in positions:
+                while pos < len(self.frame_types):
+                    if self.frame_types[pos] != 'P':
+                        pos += 1
+                    else:
+                        positions_corrected.append(pos)
                         break
-                delta -= 1
 
-            if not valid:
-                continue
+            positions_valid = []
 
-            # compare the pivot with residuals on the right side
-            delta = 1
-            count = 0
-            while count < d and pos + delta < n:
-                if self.frame_types[pos + delta] == 'P':
-                    count += 1
-                    if self.residuals[pos] < self.residuals[pos + delta]:
-                        valid = False
-                        break
-                delta += 1
+            k = 0
+            for pos in positions_corrected:
+                # compare the pivot with residuals on the left side
+                delta = -1
+                count = 0
+                valid = True
+                while count < d and pos + delta >= 0:
+                    if self.frame_types[pos + delta] == 'P':
+                        count += 1
+                        if self.residuals[pos] < self.residuals[pos + delta]:
+                            valid = False
+                            break
+                    delta -= 1
 
-            if valid:
-                k += 1
-                positions_valid.append(pos)
+                if not valid:
+                    continue
+
+                # compare the pivot with residuals on the right side
+                delta = 1
+                count = 0
+                while count < d and pos + delta < n:
+                    if self.frame_types[pos + delta] == 'P':
+                        count += 1
+                        if self.residuals[pos] < self.residuals[pos + delta]:
+                            valid = False
+                            break
+                    delta += 1
+
+                if valid:
+                    k += 1
+                    positions_valid.append(pos)
 
         prob = 1 / (2 * d + 1)
         NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
-        return NFA, positions_valid
+        return NFA, None
 
     def detect_periodic_signal(self, d=2):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
@@ -228,18 +265,29 @@ def compute_residual(img_res):
 
 
 def main():
-    root = "/Users/yli/phd/video_processing/jm_16.1/bin"
+    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
+    d = 2
     analyzer = StreamAnalyzer()
     analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
+
     # vis_fname = "residuals_Y_c2.eps"
-    analyzer.visualize(vis_fname)
-    analyzer.detect_periodic_signal(d=3)
+    # analyzer.visualize(vis_fname)
+
+    import time
+    start = time.time()
+    analyzer.preprocess(d)
+    gop = analyzer.detect_periodic_signal(d)
+    end = time.time()
+
     # vis_fname = "detection_Y_c2.eps"
-    analyzer.visualize(vis_fname)
+    # analyzer.visualize(vis_fname)
+
+    print("Detected result:", gop)
+    print("Elapsed time:", end - start)
 
 
 if __name__ == '__main__':
