@@ -231,15 +231,9 @@ def compute_residual(img_res):
 
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
-<<<<<<< HEAD
-    fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
-
-
-=======
     fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
 
     d = 2
->>>>>>> dev
     analyzer = StreamAnalyzer()
     analyzer.load_from_frames(fnames, max_num=10000)
 
