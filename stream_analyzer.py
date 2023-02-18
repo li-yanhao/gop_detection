@@ -234,7 +234,7 @@ class StreamAnalyzer:
             for b in range(0, p):
                 NFA, tested_indices = self.compute_NFA(p, b, d)
                 if NFA < self.epsilon:
-                    # print(f"periodicity={p} offset={b} NFA={NFA}")
+                    print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
