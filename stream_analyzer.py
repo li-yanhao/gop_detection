@@ -39,6 +39,54 @@ class StreamAnalyzer:
         self.display_nums = self.display_nums[sorted_ind][:max_num]
         self.residuals = self.residuals[sorted_ind][:max_num]
 
+    def preprocess(self, d):
+        self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
+
+        # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
+        self.map_to_peak_pos = np.zeros(len(self.residuals), dtype=int) - 1
+
+        P_indices = np.where(self.frame_types == 'P')[0]
+        for pivot in P_indices:
+            # BETA: a P-frame with prediction residual based on I frame usually has higher residual than other P frames
+            # if self.frame_types[pivot - 1] == 'I':
+            #     continue
+
+            delta = -1
+            count = 0
+            while count < d and pivot + delta >= 0:
+                if self.frame_types[pivot + delta] == 'P':
+                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                        break
+                    else:
+                        count += 1
+                delta -= 1
+
+            if count < d:
+                continue
+
+            # compare the pivot with residuals on the right side
+            delta = 1
+            count = 0
+            while count < d and pivot + delta < len(self.residuals):
+                if self.frame_types[pivot + delta] == 'P':
+                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                        break
+                    else:
+                        count += 1
+                delta += 1
+
+            if count == d:
+                self.valid_peak_mask[pivot] = True
+                self.map_to_peak_pos[pivot] = pivot
+
+                pos = pivot - 1
+                while self.frame_types[pos] != 'P':
+                    self.valid_peak_mask[pos] = True
+                    self.map_to_peak_pos[pos] = pivot
+                    pos -= 1
+        # print(np.where(self.valid_peak_mask)[0])
+        # print(self.map_to_peak_pos)
+
     def load_from_ckpt(self, ckpt_fname):
         try:
             checkpoint = torch.load(ckpt_fname)
@@ -47,7 +95,7 @@ class StreamAnalyzer:
             return True
         except:
             return False
-    
+
     def save_to_ckpt(self, ckpt_fname):
         dir = os.path.dirname(ckpt_fname)
         os.makedirs(dir, exist_ok=True)
@@ -128,59 +176,13 @@ class StreamAnalyzer:
 
         # the candidate (pi, bi) has periodic indices within the range [d, n-d)
         positions = np.arange((bij - d) % pi + d, n - d, pi)
-        positions_corrected = []
 
-        # debug:
-        # for pos in positions:
-        #     while self.frame_types[pos] != 'P':
-        #         pos += 1
-        #     positions_corrected.append(pos)
-
-        for pos in positions:
-            while pos < len(self.frame_types):
-                if self.frame_types[pos] != 'P':
-                    pos += 1
-                else:
-                    positions_corrected.append(pos)
-                    break
-
-        positions_valid = []
-
-        k = 0
-        for pos in positions_corrected:
-            # compare the pivot with residuals on the left side
-            delta = -1
-            count = 0
-            valid = True
-            while count < d and pos + delta >= 0:
-                if self.frame_types[pos + delta] == 'P':
-                    count += 1
-                    if self.residuals[pos] < self.residuals[pos + delta]:
-                        valid = False
-                        break
-                delta -= 1
-
-            if not valid:
-                continue
-
-            # compare the pivot with residuals on the right side
-            delta = 1
-            count = 0
-            while count < d and pos + delta < n:
-                if self.frame_types[pos + delta] == 'P':
-                    count += 1
-                    if self.residuals[pos] < self.residuals[pos + delta]:
-                        valid = False
-                        break
-                delta += 1
-
-            if valid:
-                k += 1
-                positions_valid.append(pos)
-
+        k = (self.valid_peak_mask[positions]).sum()
         prob = 1 / (2 * d + 1)
         NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
+        positions_valid = self.map_to_peak_pos[positions]
+        positions_valid = positions_valid[positions_valid >= 0]
         return NFA, positions_valid
 
     def detect_periodic_signal(self, d=2):
@@ -229,25 +231,36 @@ def compute_residual(img_res):
 
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
+<<<<<<< HEAD
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
 
+=======
+    fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
+
+    d = 2
+>>>>>>> dev
     analyzer = StreamAnalyzer()
     analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
+
     # vis_fname = "residuals_Y_c2.eps"
     # analyzer.visualize(vis_fname)
 
     import time
     start = time.time()
-    gop = analyzer.detect_periodic_signal(d=2)
+    analyzer.preprocess(d)
+    gop = analyzer.detect_periodic_signal(d)
     end = time.time()
 
     # vis_fname = "detection_Y_c2.eps"
     # analyzer.visualize(vis_fname)
 
     print("Estimated GOP:", gop)
+    print("Elapsed time:", end - start)
+
+    print("Detected result:", gop)
     print("Elapsed time:", end - start)
 
 
