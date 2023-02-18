@@ -197,7 +197,7 @@ class StreamAnalyzer:
             for b in range(0, p):
                 NFA, tested_indices = self.compute_NFA(p, b, d)
                 if NFA < self.epsilon:
-                    # print(f"periodicity={p} offset={b} NFA={NFA}")
+                    print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
@@ -224,22 +224,31 @@ def compute_residual(img_res):
     """
     img_res = np.abs(img_res)
     # block_reduce(img_res, block_size=(8, 8), func=np.mean)
-    return np.mean(img_res[0:, :])
+    return np.mean(img_res)
 
 
 def main():
-    root = "/Users/yli/phd/video_processing/jm_16.1/bin"
+    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
+
 
     analyzer = StreamAnalyzer()
     analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
     # vis_fname = "residuals_Y_c2.eps"
-    analyzer.visualize(vis_fname)
-    analyzer.detect_periodic_signal(d=3)
+    # analyzer.visualize(vis_fname)
+
+    import time
+    start = time.time()
+    gop = analyzer.detect_periodic_signal(d=2)
+    end = time.time()
+
     # vis_fname = "detection_Y_c2.eps"
-    analyzer.visualize(vis_fname)
+    # analyzer.visualize(vis_fname)
+
+    print("Estimated GOP:", gop)
+    print("Elapsed time:", end - start)
 
 
 if __name__ == '__main__':
