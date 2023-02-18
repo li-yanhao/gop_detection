@@ -165,9 +165,9 @@ class PRED:
         if phi_arr.max() > threshold:
             self.detected_result["frame_nums"] = np.arange(0, len(self.S_PRED), G1)
             self.detected_result["G1"] = np.arange(0, len(self.S_PRED), G1)
-            return G1
+            return G1, phi_arr.max()
         else:
-            return None
+            return None, None
 
 
 

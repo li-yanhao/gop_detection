@@ -5,6 +5,7 @@ import glob
 import cv2
 import matplotlib.pyplot as plt
 import mplcursors
+import torch
 # epsilon = 1e-5
 
 
@@ -20,7 +21,7 @@ class Vazquez:
         self.I_arr = None
         self.P = None
 
-    def load_residuals(self, fnames, max_num=10000):
+    def load_from_frames(self, fnames, max_num=10000):
         fnames = np.array(fnames)
 
         frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -53,9 +54,9 @@ class Vazquez:
                 if i == 0:
                     self.I_arr[i] = self.I_arr[i + 1]
                 elif i == len(self.frame_types) - 1:
-                    self.I_arr[i] = self.I_arr[i + 1]
+                    self.I_arr[i] = self.I_arr[i - 1]
                 else:
-                    self.I_arr[i] = (self.I_arr[i - 1] + self.I_arr[i - 1]) / 2
+                    self.I_arr[i] = (self.I_arr[i + 1] + self.I_arr[i - 1]) / 2
 
         P = []
         for n in range(1, len(self.I_arr) - 1):
@@ -73,6 +74,24 @@ class Vazquez:
         self.V_arr = np.zeros(len(self.I_arr))
         self.V_arr[P] = E_arr[self.P]
 
+    def load_from_ckpt(self, ckpt_fname):
+        try:
+            checkpoint = torch.load(ckpt_fname)
+            self.V_arr = checkpoint["V_arr"]
+            self.P = checkpoint["P"]
+            return True
+        except:
+            return False
+    
+    def save_to_ckpt(self, ckpt_fname):
+        dir = os.path.dirname(ckpt_fname)
+        os.makedirs(dir, exist_ok=True)
+        torch.save({
+            "V_arr": self.V_arr,
+            "P": self.P
+        }, ckpt_fname)
+        return True
+        
 
     def visualize(self, save_fname=None):
         fig, ax = plt.subplots(figsize=(20, 5))
@@ -122,15 +141,23 @@ class Vazquez:
         # T = len(self.S_PRED)
 
         C = set()
+        # print(self.P)
         for i in range(len(self.P)):
             n1 = self.P[i]
             for j in range(i + 1, len(self.P)):
                 n2 = self.P[j]
                 c = np.gcd(n1, n2)
-                if c >= 2 and c < len(self.P):
+                if c >= 2 and c < len(self.V_arr):
                     C.add(c)
-        print("C:", C)
+        if len(C) == 0:
+            if len(self.P) == 1:
+                C.add(self.P[0])
+            else:
+                C.add(1)
+
+        
         C = np.array(list(C))
+        
         phi_arr = []
         for i in range(len(C)):
             c = C[i]
@@ -139,15 +166,16 @@ class Vazquez:
         idx_best = np.argmax(phi_arr)
 
         phi_max = phi_arr[idx_best]
+        T_phi = -1e8 # TODO: how to set? 
 
-        T_phi = 0 # how to set? TODO
         if phi_max > T_phi:
             G1 = C[idx_best]
             self.detected_result["G1"] = G1
         else:
             G1 = None
+            phi_max = None
 
-        return G1
+        return G1, phi_max
 
     def compute_phi(self, c):
         indices = np.arange(0, len(self.V_arr), c)
@@ -186,7 +214,7 @@ def test():
     fnames = glob.glob(os.path.join(root, "imgMB*.png"))
 
     analyzer = Vazquez()
-    analyzer.load_residuals(fnames, max_num=1000)
+    analyzer.load_from_frames(fnames, max_num=1000)
     analyzer.preprocess()
     # analyzer.visualize()
     GOP = analyzer.detect_periodic_signal()

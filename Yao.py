@@ -132,13 +132,13 @@ class YAO:
         idx_sorted = np.argsort(Lambda_candidates)
         idx_max1, idx_max2 = idx_sorted[-1], idx_sorted[-2]
 
-        self.T_Lambda = 0.01 # ?
+        self.T_Lambda = -0.01 # ?
         if Lambda_candidates[idx_max1] - Lambda_candidates[idx_max2] > self.T_Lambda:
             G1 = G_candidates[idx_max1]
             self.detected_result["frame_nums"] = np.arange(0, len(self.Et_features), G1)
-            return G1
+            return G1, Lambda_candidates[idx_max1]
         else:
-            return None
+            return None, None
 
 
     def load_from_ckpt(self, ckpt_fname):

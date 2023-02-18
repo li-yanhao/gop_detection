@@ -9,14 +9,14 @@ import matplotlib.patches as mpatches
 import torch
 
 class StreamAnalyzer:
-    def __init__(self):
+    def __init__(self, epsilon=1):
         self.residuals = None
         self.frame_types = None
         self.stream_nums = None
         self.display_nums = None
         self.detected_result = None
 
-        self.epsilon = 1
+        self.epsilon = epsilon
 
     def load_from_frames(self, fnames, max_num=10000):
         fnames = np.array(fnames)
@@ -39,7 +39,7 @@ class StreamAnalyzer:
         self.display_nums = self.display_nums[sorted_ind][:max_num]
         self.residuals = self.residuals[sorted_ind][:max_num]
 
-    def preprocess(self, d):
+    def preprocess(self, d=2):
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
@@ -91,7 +91,10 @@ class StreamAnalyzer:
         try:
             checkpoint = torch.load(ckpt_fname)
             self.residuals = checkpoint["residuals"]
-            self.frame_types = checkpoint["frame_types"]
+            # self.frame_types = checkpoint["frame_types"]
+            self.valid_peak_mask = checkpoint["valid_peak_mask"]
+            self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
+
             return True
         except:
             return False
@@ -101,7 +104,9 @@ class StreamAnalyzer:
         os.makedirs(dir, exist_ok=True)
         torch.save({
             "residuals": self.residuals,
-            "frame_types": self.frame_types
+            # "frame_types": self.frame_types,
+            "valid_peak_mask": self.valid_peak_mask,
+            "map_to_peak_pos": self.map_to_peak_pos
         }, ckpt_fname)
         return True
 
@@ -199,7 +204,7 @@ class StreamAnalyzer:
             for b in range(0, p):
                 NFA, tested_indices = self.compute_NFA(p, b, d)
                 if NFA < self.epsilon:
-                    print(f"periodicity={p} offset={b} NFA={NFA}")
+                    # print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
@@ -216,7 +221,7 @@ class StreamAnalyzer:
         self.detected_result = detected_results[best_i]
 
         # return the periodicity
-        return self.detected_result[0]
+        return self.detected_result[0], best_NFA
 
 
 def compute_residual(img_res):
