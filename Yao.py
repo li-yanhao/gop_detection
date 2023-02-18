@@ -24,11 +24,12 @@ class YAO:
         :return: a list of packet sizes in bytes
         """
         command = f"{ffprobe_exe} -show_frames {vid_fname} | grep pkt_size"
+        # print(command)
 
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         result = result.stdout
         pkt_sizes = [int(s.split("=")[-1]) for s in result.split("\n") if s != ""]
-        print("pkt_sizes:", pkt_sizes)
+        # print("pkt_sizes:", pkt_sizes)
         # print("len pkt_sizes:", len(pkt_sizes))
 
         self.SODBs = np.array(pkt_sizes)
@@ -42,7 +43,8 @@ class YAO:
 
         SMB_features = []
         for fname in fnames:
-            SMB_feature = 1 / (cv2.imread(fname).mean() + 1e-5)
+            # SMB_feature = 1 / (cv2.imread(fname).mean() + 1e-5)
+            SMB_feature = 1 / ((cv2.imread(fname) == 3).mean() + 1e-5) # 3 is the value for SMB
             SMB_features.append(SMB_feature)
         self.SMB_features = np.array(SMB_features)
 
@@ -68,7 +70,7 @@ class YAO:
                 colors.append('green')
             else:
                 raise Exception(f"Invalid type {type}")
-        print("colors", colors)
+        # print("colors", colors)
 
         if len(self.detected_result) > 0:
             for frame_num in self.detected_result["frame_nums"]:
@@ -104,12 +106,12 @@ class YAO:
         I_indices = np.where(self.frame_types == 'I')[0]
         for i in I_indices:
             if i == 0:
-                self.SODBs[i] = self.SODBs[i+1]
-            elif i == len(self.SODBs):
+                self.SODBs[i] = self.SODBs[i + 1]
+            elif i == len(self.SODBs) - 1:
                 self.SODBs[i] = self.SODBs[i - 1]
             else:
                 self.SODBs[i] = (self.SODBs[i - 1] + self.SODBs[i + 1]) / 2
-        print(I_indices)
+        # print(I_indices)
 
         self.Et_features = self.SODBs * self.SMB_features
         self.Et_features[I_indices] = self.SODBs[I_indices] / self.SMB_features[I_indices]
@@ -124,8 +126,8 @@ class YAO:
 
         Lambda_candidates = [Lambda(m) for m in G_candidates]
 
-        for i in range(len(G_candidates)):
-            print(f"G={G_candidates[i]}, Lambda={Lambda_candidates[i]}")
+        # for i in range(len(G_candidates)):
+        #     print(f"G={G_candidates[i]}, Lambda={Lambda_candidates[i]}")
 
         idx_sorted = np.argsort(Lambda_candidates)
         idx_max1, idx_max2 = idx_sorted[-1], idx_sorted[-2]

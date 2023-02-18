@@ -25,7 +25,7 @@ root_videos = "/mnt/ddisk/yanhao/gop_detection/data/videos_c2"
 root_checkpoints = "/mnt/ddisk/yanhao/gop_detection/data/checkpoints"
 root_inspect = "/mnt/ddisk/yanhao/gop_detection/data/inspect"
 jm_exe = "/mnt/ddisk/yanhao/gop_detection/jm/bin/ldecod.exe"
-ffprobe_exe = "/mnt/ddisk/yanhao/ffmpeg/ffmpeg-git-20220910-amd64-static/ffmpeg"
+ffprobe_exe = "/mnt/ddisk/yanhao/ffmpeg/ffmpeg-git-20220910-amd64-static/ffprobe"
 
 
 def fname_from_vid_to_ckpt(vid_fname:str, method):
@@ -38,8 +38,6 @@ def fname_from_vid_to_ckpt(vid_fname:str, method):
     return ckpt_fname
 
 def decode_one_video(vid_fname:str):
-        
-    
     # inspect_dir = os.path.dirname(vid_fname.replace("videos_c2", "inspect"))
 
     # 1.1 remove existing files
@@ -85,7 +83,7 @@ def test_one_video(vid_fname:str, GOP1):
         if not has_decoded:
             decode_one_video(vid_fname)
             has_decoded = True
-        inspect_fnames = glob.glob( os.path.join(root_inspect, "imgSB_*.png") )
+        inspect_fnames = glob.glob( os.path.join(root_inspect, "imgMB*.png") )
 
         analyzer.load_SODB(vid_fname, ffprobe_exe)
         analyzer.load_from_frames(inspect_fnames)
@@ -95,17 +93,17 @@ def test_one_video(vid_fname:str, GOP1):
     print(f"Yao estimation: G1 = {GOP_est}")
 
     # 4. A Contrario
-    # analyzer = StreamAnalyzer()
-    # ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "aContrario")
-    # if not analyzer.load_from_ckpt(ckpt_fname):
-    #     if not has_decoded:
-    #         decode_one_video(vid_fname)
-    #         has_decoded = True
-    #     inspect_fnames = glob.glob( os.path.join(root_inspect, "imgY_s*.npy") )
-    #     analyzer.load_from_frames(inspect_fnames)
-    #     analyzer.save_to_ckpt(ckpt_fname)
-    # GOP_est = analyzer.detect_periodic_signal()
-    # print(f"aContrario estimation: G1 = {GOP_est}")
+    analyzer = StreamAnalyzer()
+    ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "aContrario")
+    if not analyzer.load_from_ckpt(ckpt_fname):
+        if not has_decoded:
+            decode_one_video(vid_fname)
+            has_decoded = True
+        inspect_fnames = glob.glob( os.path.join(root_inspect, "imgY_s*.npy") )
+        analyzer.load_from_frames(inspect_fnames)
+        analyzer.save_to_ckpt(ckpt_fname)
+    GOP_est = analyzer.detect_periodic_signal()
+    print(f"aContrario estimation: G1 = {GOP_est}")
 
     print()
     pass
@@ -138,6 +136,9 @@ def main():
 
 
 def main_cbr():
+    valid_prefix = ["akiyo_cif", "coastguard_cif", "deadline_cif",
+                    "hall_monitor_cif", "paris_cif", "silent_cif", 
+                    "bowing_cif", "container_cif", "foreman_cif", "news_cif", "sign_irene_cif"]
     cbr_c1_options = [300, 700, 1100]
     GOP_c1_options = [10, 15, 30, 40]
     cbr_c2_options = [300, 700, 1100]
@@ -145,25 +146,21 @@ def main_cbr():
 
 
     for cbr_c1 in cbr_c1_options:
-        if cbr_c1 != 700:
-            continue
-        for gop1 in GOP_c1_options:
-            for cbr_c2 in cbr_c2_options:
-                if cbr_c2 != 300:
-                    continue
+        for cbr_c2 in cbr_c2_options:
+        # if cbr_c1 != 300:
+            # continue
+            for gop1 in GOP_c1_options:
+                # if cbr_c2 != 300:
+                    # continue
                 for gop2 in GOP_c2_options:
                     in_dir = os.path.join(root_videos, 
                         f"cbr{cbr_c1}_c1", f"gop{gop1:02d}_c1",
                         f"cbr{cbr_c2}_c2", f"gop{gop2:02d}_c2")
-                    vid_fnames = glob.glob(os.path.join(in_dir, "*.h264"))
-                    vid_fnames.sort()
+                    # vid_fnames = glob.glob(os.path.join(in_dir, "*.h264"))
+                    # vid_fnames.sort()
+                    vid_fnames = [os.path.join(in_dir, s + ".h264") for s in valid_prefix]
                     for vid_fname in vid_fnames:
-                        if vid_fname.split("/")[-1][:-5] != "bowing_cif":
-                            continue
-                        # try:
                         test_one_video(vid_fname, gop1)
-                        # except:
-                            # continue
 
 if __name__ == "__main__":
     # main()
