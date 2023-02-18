@@ -43,10 +43,14 @@ class StreamAnalyzer:
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
-        self.map_to_peak_pos = np.zeros(len(self.residuals), dtype=int)
+        self.map_to_peak_pos = np.zeros(len(self.residuals), dtype=int) - 1
 
         P_indices = np.where(self.frame_types == 'P')[0]
         for pivot in P_indices:
+            # BETA: a P-frame with prediction residual based on I frame usually has higher residual than other P frames
+            # if self.frame_types[pivot - 1] == 'I':
+            #     continue
+
             delta = -1
             count = 0
             while count < d and pivot + delta >= 0:
@@ -78,9 +82,10 @@ class StreamAnalyzer:
                 pos = pivot - 1
                 while self.frame_types[pos] != 'P':
                     self.valid_peak_mask[pos] = True
+                    self.map_to_peak_pos[pos] = pivot
                     pos -= 1
-
-        print(np.where(self.valid_peak_mask)[0])
+        # print(np.where(self.valid_peak_mask)[0])
+        # print(self.map_to_peak_pos)
 
     def load_from_ckpt(self, ckpt_fname):
         try:
@@ -177,6 +182,7 @@ class StreamAnalyzer:
         NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
         positions_valid = self.map_to_peak_pos[positions]
+        positions_valid = positions_valid[positions_valid >= 0]
         return NFA, positions_valid
 
     def detect_periodic_signal(self, d=2):
@@ -225,7 +231,7 @@ def compute_residual(img_res):
 
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
+    fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
 
     d = 2
     analyzer = StreamAnalyzer()
