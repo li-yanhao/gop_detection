@@ -41,6 +41,10 @@ class StreamAnalyzer:
 
     def preprocess(self, d):
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
+
+        # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
+        self.map_to_peak_pos = np.zeros(len(self.residuals), dtype=int)
+
         P_indices = np.where(self.frame_types == 'P')[0]
         for pivot in P_indices:
             delta = -1
@@ -69,12 +73,13 @@ class StreamAnalyzer:
 
             if count == d:
                 self.valid_peak_mask[pivot] = True
-                pivot -= 1
-                while self.frame_types[pivot] != 'P':
-                    self.valid_peak_mask[pivot] = True
-                    pivot -= 1
+                self.map_to_peak_pos[pivot] = pivot
 
-        print("valid peak pos:")
+                pos = pivot - 1
+                while self.frame_types[pos] != 'P':
+                    self.valid_peak_mask[pos] = True
+                    pos -= 1
+
         print(np.where(self.valid_peak_mask)[0])
 
     def load_from_ckpt(self, ckpt_fname):
@@ -168,57 +173,11 @@ class StreamAnalyzer:
         positions = np.arange((bij - d) % pi + d, n - d, pi)
 
         k = (self.valid_peak_mask[positions]).sum()
-
-        visualize = False
-        if visualize:
-            positions_corrected = []
-
-            for pos in positions:
-                while pos < len(self.frame_types):
-                    if self.frame_types[pos] != 'P':
-                        pos += 1
-                    else:
-                        positions_corrected.append(pos)
-                        break
-
-            positions_valid = []
-
-            k = 0
-            for pos in positions_corrected:
-                # compare the pivot with residuals on the left side
-                delta = -1
-                count = 0
-                valid = True
-                while count < d and pos + delta >= 0:
-                    if self.frame_types[pos + delta] == 'P':
-                        count += 1
-                        if self.residuals[pos] < self.residuals[pos + delta]:
-                            valid = False
-                            break
-                    delta -= 1
-
-                if not valid:
-                    continue
-
-                # compare the pivot with residuals on the right side
-                delta = 1
-                count = 0
-                while count < d and pos + delta < n:
-                    if self.frame_types[pos + delta] == 'P':
-                        count += 1
-                        if self.residuals[pos] < self.residuals[pos + delta]:
-                            valid = False
-                            break
-                    delta += 1
-
-                if valid:
-                    k += 1
-                    positions_valid.append(pos)
-
         prob = 1 / (2 * d + 1)
         NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
 
-        return NFA, None
+        positions_valid = self.map_to_peak_pos[positions]
+        return NFA, positions_valid
 
     def detect_periodic_signal(self, d=2):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
@@ -284,7 +243,7 @@ def main():
     end = time.time()
 
     # vis_fname = "detection_Y_c2.eps"
-    # analyzer.visualize(vis_fname)
+    analyzer.visualize(vis_fname)
 
     print("Detected result:", gop)
     print("Elapsed time:", end - start)
