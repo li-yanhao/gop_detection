@@ -147,11 +147,12 @@ class PRED:
                 if c >= 2 and c < T / 5:
                     C.add(c)
 
-        C = np.array(list(C))
+        C = np.sort(np.array(list(C)))
         phi_arr = np.zeros_like(C).astype(float)
 
         for i in range(len(C)):
             c = C[i]
+            small_candidates = C[:i]
             res = compute_phi(self.S_PRED, c, P)
             phi_arr[i] = res
 
@@ -235,8 +236,11 @@ def compute_phi(S, c, P) -> float:
         indices = np.arange(0, T, z)
         phi_3 = np.sum(S[indices])
         phi_3_arr.append(phi_3)
-
-    phi_3 = np.max(np.array(phi_3_arr))
+    
+    if len(phi_3_arr) == 0:
+        phi_3 = 0
+    else:
+        phi_3 = np.max(np.array(phi_3_arr))
 
     # print(f"c={c}, phi_1={phi_1}, phi_2={phi_2}, phi_3={phi_3}")
 

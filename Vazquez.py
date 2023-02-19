@@ -156,7 +156,7 @@ class Vazquez:
                 C.add(1)
 
         
-        C = np.array(list(C))
+        C = np.sort(np.array(list(C)))
         
         phi_arr = []
         for i in range(len(C)):
@@ -187,9 +187,12 @@ class Vazquez:
 
         energy_arr = []
         for z in range(1, c):
-            energy = self.V_arr[::z].mean()
+            energy = self.V_arr[::z].sum()
             energy_arr.append(energy)
-        phi3 = np.max(np.array(energy_arr))
+        if len(energy_arr) == 0:
+            phi3 = 0
+        else:
+            phi3 = np.max(np.array(energy_arr))
 
         return phi1 - phi2 - phi3
 
