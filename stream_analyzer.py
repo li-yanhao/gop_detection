@@ -15,6 +15,7 @@ class StreamAnalyzer:
         self.stream_nums = None
         self.display_nums = None
         self.detected_result = None
+        self.valid_sequence_mask = None
 
         self.epsilon = epsilon
 
@@ -80,12 +81,19 @@ class StreamAnalyzer:
                 self.map_to_peak_pos[pivot] = pivot
 
                 pos = pivot - 1
-                while self.frame_types[pos] != 'P':
+                while self.frame_types[pos] == 'B':
                     self.valid_peak_mask[pos] = True
                     self.map_to_peak_pos[pos] = pivot
                     pos -= 1
         # print(np.where(self.valid_peak_mask)[0])
         # print(self.map_to_peak_pos)
+
+        I_indices = np.where(self.frame_types == 'I')[0]
+        self.valid_sequence_mask = np.ones(len(self.residuals), dtype=bool)
+        for pos in I_indices:
+            while pos >= 0 and self.frame_types[pos] != 'P':
+                self.valid_sequence_mask[pos] = False
+                pos -= 1
 
     def load_from_ckpt(self, ckpt_fname):
         try:
@@ -93,6 +101,7 @@ class StreamAnalyzer:
             self.residuals = checkpoint["residuals"]
             self.frame_types = checkpoint["frame_types"]
             self.valid_peak_mask = checkpoint["valid_peak_mask"]
+            self.valid_sequence_mask = checkpoint["valid_sequence_mask"]
             self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
 
             return True
@@ -106,7 +115,8 @@ class StreamAnalyzer:
             "residuals": self.residuals,
             "frame_types": self.frame_types,
             "valid_peak_mask": self.valid_peak_mask,
-            "map_to_peak_pos": self.map_to_peak_pos
+            "map_to_peak_pos": self.map_to_peak_pos,
+            "valid_sequence_mask": self.valid_sequence_mask
         }, ckpt_fname)
         return True
 
@@ -172,7 +182,7 @@ class StreamAnalyzer:
     def compute_NFA(self, pi, bij, d):
         """ Compute the NFA of a candidate (pi, bij)
 
-        :param pi: the tested periodicity
+        :param pi: the tested period
         :param bij: the tested offset
         :param d: the range of neighborhood to valid a peak residual
         :return:
@@ -183,9 +193,19 @@ class StreamAnalyzer:
         positions = np.arange((bij - d) % pi + d, n - d, pi)
 
         k = (self.valid_peak_mask[positions]).sum()
-        length_sequence = (self.frame_types[positions] == 'P').sum()
+
+        length_sequence = self.valid_sequence_mask[positions].sum()
         prob = 1 / (2 * d + 1)
-        NFA = stats.binom.sf(k - 0.1, length_sequence, prob) * pi * (( n - 1) // 2 - 2 * d)
+
+        if length_sequence > 0:
+            NFA = stats.binom.sf(k - 0.1, length_sequence, prob) * pi * ((n - 1) // 2 - 2 * d)
+        else:
+            NFA = np.inf
+
+        # if pi == 120:
+        #     print("positions", positions)
+        #     print("self.frame_types[positions]", self.frame_types[positions])
+        #     print(f"pi={pi}, bij={bij}, k={k}, len={length_sequence}, NFA={NFA}")
 
         positions_valid = self.map_to_peak_pos[positions]
         positions_valid = positions_valid[positions_valid >= 0]
@@ -239,14 +259,14 @@ def main():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
 
-    d = 2
-    analyzer = StreamAnalyzer()
+    d = 3
+    analyzer = StreamAnalyzer(epsilon=10)
     analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
 
     # vis_fname = "residuals_Y_c2.eps"
-    # analyzer.visualize(vis_fname)
+    analyzer.visualize(vis_fname)
 
     import time
     start = time.time()
@@ -255,14 +275,10 @@ def main():
     end = time.time()
 
     # vis_fname = "detection_Y_c2.eps"
-    # analyzer.visualize(vis_fname)
+    analyzer.visualize(vis_fname)
 
     print("Estimated GOP:", gop)
     print("Elapsed time:", end - start)
-
-    print("Detected result:", gop)
-    print("Elapsed time:", end - start)
-
 
 if __name__ == '__main__':
     main()
