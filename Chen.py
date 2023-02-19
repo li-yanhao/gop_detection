@@ -9,7 +9,7 @@ import torch
 
 epsilon = 1e-5
 
-class PRED:
+class Chen:
     def __init__(self):
         self.residuals = None
         self.frame_types = None
@@ -86,7 +86,6 @@ class PRED:
             "S_PRED": self.S_PRED
         }, ckpt_fname)
         return True
-        
 
     def visualize(self, save_fname=None):
         fig, ax = plt.subplots(figsize=(20, 5))
@@ -251,7 +250,7 @@ def test():
     root = "/Users/yli/phd/video_processing/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
 
-    analyzer = PRED()
+    analyzer = Chen()
     analyzer.load_from_frames(fnames, max_num=1000)
     analyzer.visualize()
     GOP = analyzer.detect_periodic_signal()

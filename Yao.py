@@ -50,6 +50,7 @@ class YAO:
 
         sorted_ind = np.argsort(self.display_nums)
 
+        print("self.SODBs", self.SODBs)
         self.frame_types = self.frame_types[sorted_ind][:max_num]
         self.stream_nums = self.stream_nums[sorted_ind][:max_num]
         self.display_nums = self.display_nums[sorted_ind][:max_num]
@@ -121,11 +122,18 @@ class YAO:
         G_max = min(150, T // 10)
         G_candidates = np.arange(2, G_max+1)
 
-        def Lambda(G):
-            return self.Et_features[::G].mean()
+        def Lambda(m):
+            # sum = 0
+            # for j in range(0, T // m):
+            #     sum += self.Et_features[j*m:j*m+m].sum()
+            # return sum / (T // m)
+            return self.Et_features[::m].mean()
+
 
         Lambda_candidates = [Lambda(m) for m in G_candidates]
 
+        for i in range(len(G_candidates)):
+            print(f"m={G_candidates[i]}, lambda={Lambda_candidates[i]}")
         # for i in range(len(G_candidates)):
         #     print(f"G={G_candidates[i]}, Lambda={Lambda_candidates[i]}")
 
@@ -161,13 +169,13 @@ class YAO:
 
 if __name__ == '__main__':
     # vid_fname = "/Users/yli/phd/deepfake/collection_deepfake/tom_cruise/tom_2.h264"
-    vid_fname = "/Users/yli/phd/deepfake/collection_deepfake/real/office_c2.h264"
+    vid_fname = "/Users/yli/phd/deepfake/collection_deepfake/real/table_c2.h264"
 
-    root = "/Users/yli/phd/video_processing/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgSB_*.png"))
+    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
+    fnames = glob.glob(os.path.join(root, "imgMB*.png"))
 
     analyzer = YAO()
-    analyzer.load_SODB(vid_fname)
+    analyzer.load_SODB(vid_fname, ffprobe_exe="/opt/homebrew/bin/ffprobe")
     analyzer.load_from_frames(fnames)
     analyzer.preprocess()
 

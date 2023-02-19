@@ -47,7 +47,6 @@ class Vazquez:
         self.I_arr = self.I_arr[sorted_indices]
         self.S_arr = self.S_arr[sorted_indices]
 
-
     def preprocess(self):
         for i in range(len(self.frame_types)):
             if self.frame_types[i] == 'I':
@@ -72,7 +71,9 @@ class Vazquez:
             np.abs((self.I_arr[2:] - self.I_arr[1:-1]) * (self.S_arr[2:] - self.S_arr[1:-1]))
 
         self.V_arr = np.zeros(len(self.I_arr))
-        self.V_arr[P] = E_arr[self.P]
+        # print("self.P", self.P)
+        if len(self.P) > 0:
+            self.V_arr[self.P] = E_arr[self.P]
 
     def load_from_ckpt(self, ckpt_fname):
         try:
@@ -155,7 +156,6 @@ class Vazquez:
             else:
                 C.add(1)
 
-        
         C = np.sort(np.array(list(C)))
         
         phi_arr = []
@@ -166,8 +166,9 @@ class Vazquez:
         idx_best = np.argmax(phi_arr)
 
         phi_max = phi_arr[idx_best]
-        T_phi = -1e8 # TODO: how to set? 
+        T_phi = -np.inf # TODO: how to set?
 
+        print(phi_max)
         if phi_max > T_phi:
             G1 = C[idx_best]
             self.detected_result["G1"] = G1
@@ -180,7 +181,7 @@ class Vazquez:
     def compute_phi(self, c):
         indices = np.arange(0, len(self.V_arr), c)
 
-        phi1 = self.V_arr[np.intersect1d(indices, self.P)].mean()
+        phi1 = self.V_arr[np.intersect1d(indices, self.P)].sum()
 
         beta = 0.1 * np.max(self.V_arr)
         phi2 = len(np.setdiff1d(indices, self.P)) * beta
@@ -213,13 +214,13 @@ class Vazquez:
 
 
 def test():
-    root = "/Users/yli/phd/video_processing/jm_16.1/bin"
+    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgMB*.png"))
 
     analyzer = Vazquez()
     analyzer.load_from_frames(fnames, max_num=1000)
     analyzer.preprocess()
-    # analyzer.visualize()
+    analyzer.visualize()
     GOP = analyzer.detect_periodic_signal()
     print("GOP:", GOP)
 
