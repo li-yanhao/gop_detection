@@ -3,7 +3,7 @@ import os
 import glob
 
 from stream_analyzer import StreamAnalyzer
-from PRED import PRED
+from Chen import Chen
 from Yao import YAO
 from Vazquez import Vazquez
 import subprocess
@@ -68,7 +68,7 @@ def test_one_video(vid_fname:str, GOP1, params={}):
     
     print(f"Gt G1: = {GOP1}")
     # 2. PRED
-    analyzer = PRED()
+    analyzer = Chen()
     ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "PRED")
     if not analyzer.load_from_ckpt(ckpt_fname):
         if not has_decoded:

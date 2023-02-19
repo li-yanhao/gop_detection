@@ -132,8 +132,6 @@ class YAO:
 
         Lambda_candidates = [Lambda(m) for m in G_candidates]
 
-        for i in range(len(G_candidates)):
-            print(f"m={G_candidates[i]}, lambda={Lambda_candidates[i]}")
         # for i in range(len(G_candidates)):
         #     print(f"G={G_candidates[i]}, Lambda={Lambda_candidates[i]}")
 

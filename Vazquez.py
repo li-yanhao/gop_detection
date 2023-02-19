@@ -168,7 +168,6 @@ class Vazquez:
         phi_max = phi_arr[idx_best]
         T_phi = -np.inf # TODO: how to set?
 
-        print(phi_max)
         if phi_max > T_phi:
             G1 = C[idx_best]
             self.detected_result["G1"] = G1
