@@ -122,6 +122,16 @@ class YAO:
         G_max = min(150, T // 10)
         G_candidates = np.arange(2, G_max+1)
 
+        # C = set()
+        # for i in range(len(P)):
+        #     n1 = P[i]
+        #     for j in range(i + 1, len(P)):
+        #         n2 = P[j]
+        #         c = np.gcd(n1, n2)
+        #         if c >= 2 and c < T / 5:
+        #             C.add(c)
+        # G_candidates = np.sort(np.array(C))
+
         def Lambda(m):
             # sum = 0
             # for j in range(0, T // m):

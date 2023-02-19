@@ -175,12 +175,15 @@ class Vazquez:
             G1 = None
             phi_max = None
 
-        return G1, phi_max
+        return G1, phi_max / len(self.V_arr)
 
     def compute_phi(self, c):
         indices = np.arange(0, len(self.V_arr), c)
 
-        phi1 = self.V_arr[np.intersect1d(indices, self.P)].sum()
+        indices_in_P = np.intersect1d(indices, self.P)
+        phi1 = 0
+        if len(indices_in_P) > 0:
+            phi1 += self.V_arr[indices_in_P].sum()
 
         beta = 0.1 * np.max(self.V_arr)
         phi2 = len(np.setdiff1d(indices, self.P)) * beta
@@ -194,7 +197,7 @@ class Vazquez:
         else:
             phi3 = np.max(np.array(energy_arr))
 
-        return phi1 - phi2 - phi3
+        return phi1 - phi2 # - phi3
 
 
         # C = np.array(list(C))

@@ -165,7 +165,7 @@ class Chen:
         if phi_arr.max() > threshold:
             self.detected_result["frame_nums"] = np.arange(0, len(self.S_PRED), G1)
             self.detected_result["G1"] = np.arange(0, len(self.S_PRED), G1)
-            return G1, phi_arr.max()
+            return G1, phi_arr.max() / len(self.S_PRED)
         else:
             return None, None
 
@@ -243,7 +243,7 @@ def compute_phi(S, c, P) -> float:
 
     # print(f"c={c}, phi_1={phi_1}, phi_2={phi_2}, phi_3={phi_3}")
 
-    return phi_1 - phi_2 - phi_3
+    return phi_1 - phi_2 # - phi_3
 
 
 def test():

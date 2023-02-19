@@ -9,8 +9,11 @@ import matplotlib.patches as mpatches
 import torch
 
 class StreamAnalyzer:
-    def __init__(self, epsilon=1):
-        self.residuals = None
+    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y"):
+        self.residuals_Y = None
+        self.residuals_U = None
+        self.residuals_V = None
+
         self.frame_types = None
         self.stream_nums = None
         self.display_nums = None
@@ -18,8 +21,11 @@ class StreamAnalyzer:
         self.valid_sequence_mask = None
 
         self.epsilon = epsilon
+        self.d = d
+        self.start_at_0 = start_at_0
+        self.space = space
 
-    def load_from_frames(self, fnames, max_num=10000):
+    def load_from_frames(self, fnames, space="Y", max_num=10000):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -31,16 +37,28 @@ class StreamAnalyzer:
             img_res = np.squeeze(img_res)
             residual = compute_residual(img_res)
             residuals.append(residual)
-        self.residuals = np.array(residuals)
+        residuals = np.array(residuals)
 
         sorted_ind = np.argsort(self.display_nums)
 
         self.frame_types = self.frame_types[sorted_ind][:max_num]
         self.stream_nums = self.stream_nums[sorted_ind][:max_num]
         self.display_nums = self.display_nums[sorted_ind][:max_num]
-        self.residuals = self.residuals[sorted_ind][:max_num]
+        if space == "Y":
+            self.residuals_Y = residuals[sorted_ind][:max_num]
+        if space == "U":
+            self.residuals_U = residuals[sorted_ind][:max_num]
+        if space == "V":
+            self.residuals_V = residuals[sorted_ind][:max_num]
 
-    def preprocess(self, d=2):
+    def preprocess(self):
+        if self.space == "Y":
+            self.residuals = self.residuals_Y.copy()
+        if self.space == "U":
+            self.residuals = self.residuals_U.copy()
+        if self.space == "V":
+            self.residuals = self.residuals_V.copy()
+
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
@@ -54,7 +72,7 @@ class StreamAnalyzer:
 
             delta = -1
             count = 0
-            while count < d and pivot + delta >= 0:
+            while count < self.d and pivot + delta >= 0:
                 if self.frame_types[pivot + delta] == 'P':
                     if self.residuals[pivot] < self.residuals[pivot + delta]:
                         break
@@ -62,13 +80,13 @@ class StreamAnalyzer:
                         count += 1
                 delta -= 1
 
-            if count < d:
+            if count < self.d:
                 continue
 
             # compare the pivot with residuals on the right side
             delta = 1
             count = 0
-            while count < d and pivot + delta < len(self.residuals):
+            while count < self.d and pivot + delta < len(self.residuals):
                 if self.frame_types[pivot + delta] == 'P':
                     if self.residuals[pivot] < self.residuals[pivot + delta]:
                         break
@@ -76,7 +94,7 @@ class StreamAnalyzer:
                         count += 1
                 delta += 1
 
-            if count == d:
+            if count == self.d:
                 self.valid_peak_mask[pivot] = True
                 self.map_to_peak_pos[pivot] = pivot
 
@@ -98,11 +116,13 @@ class StreamAnalyzer:
     def load_from_ckpt(self, ckpt_fname):
         try:
             checkpoint = torch.load(ckpt_fname)
-            self.residuals = checkpoint["residuals"]
+            self.residuals_Y = checkpoint["residuals_Y"]
+            self.residuals_U = checkpoint["residuals_U"]
+            self.residuals_V = checkpoint["residuals_V"]
             self.frame_types = checkpoint["frame_types"]
-            self.valid_peak_mask = checkpoint["valid_peak_mask"]
-            self.valid_sequence_mask = checkpoint["valid_sequence_mask"]
-            self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
+            # self.valid_peak_mask = checkpoint["valid_peak_mask"]
+            # self.valid_sequence_mask = checkpoint["valid_sequence_mask"]
+            # self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
 
             return True
         except:
@@ -112,11 +132,13 @@ class StreamAnalyzer:
         dir = os.path.dirname(ckpt_fname)
         os.makedirs(dir, exist_ok=True)
         torch.save({
-            "residuals": self.residuals,
+            "residuals_Y": self.residuals_Y,
+            "residuals_U": self.residuals_U,
+            "residuals_V": self.residuals_V,
             "frame_types": self.frame_types,
-            "valid_peak_mask": self.valid_peak_mask,
-            "map_to_peak_pos": self.map_to_peak_pos,
-            "valid_sequence_mask": self.valid_sequence_mask
+            # "valid_peak_mask": self.valid_peak_mask,
+            # "map_to_peak_pos": self.map_to_peak_pos,
+            # "valid_sequence_mask": self.valid_sequence_mask
         }, ckpt_fname)
         return True
 
@@ -179,7 +201,7 @@ class StreamAnalyzer:
 
         plt.show()
 
-    def compute_NFA(self, pi, bij, d):
+    def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
 
         :param pi: the tested period
@@ -198,7 +220,7 @@ class StreamAnalyzer:
         prob = 1 / (2 * d + 1)
 
         if length_sequence > 0:
-            NFA = stats.binom.sf(k - 0.1, length_sequence, prob) * pi * ((n - 1) // 2 - 2 * d)
+            NFA = stats.binom.sf(k - 0.1, length_sequence, prob) * N_test
         else:
             NFA = np.inf
 
@@ -211,19 +233,26 @@ class StreamAnalyzer:
         positions_valid = positions_valid[positions_valid >= 0]
         return NFA, positions_valid
 
-    def detect_periodic_signal(self, d=2):
+    def detect_periodic_signal(self):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
 
         :param d: the range of neighborhood to valid a peak residual.
         :return: the detected periodicity
         """
 
-        assert d >= 1, "the range of neighborhood must be larger than 1"
+        assert self.d >= 1, "the range of neighborhood must be larger than 1"
 
         detected_results = []
-        for p in range(2 * d, len(self.residuals) // 2):
-            for b in range(0, p):
-                NFA, tested_indices = self.compute_NFA(p, b, d)
+        for p in range(2 * self.d, len(self.residuals) // 2):
+            if self.start_at_0:
+                b_candidates = [0]
+                N_test = len(self.residuals - 1) // 2 - 2 * self.d
+            else:
+                b_candidates = np.arange(0, p)
+                N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
+
+            for b in b_candidates:
+                NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
                     # print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
@@ -260,7 +289,7 @@ def main():
     fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
 
     d = 3
-    analyzer = StreamAnalyzer(epsilon=10)
+    analyzer = StreamAnalyzer(epsilon=10, start_at_0=False)
     analyzer.load_from_frames(fnames, max_num=10000)
 
     vis_fname = None
