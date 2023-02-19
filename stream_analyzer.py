@@ -91,7 +91,7 @@ class StreamAnalyzer:
         try:
             checkpoint = torch.load(ckpt_fname)
             self.residuals = checkpoint["residuals"]
-            # self.frame_types = checkpoint["frame_types"]
+            self.frame_types = checkpoint["frame_types"]
             self.valid_peak_mask = checkpoint["valid_peak_mask"]
             self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
 
@@ -104,7 +104,7 @@ class StreamAnalyzer:
         os.makedirs(dir, exist_ok=True)
         torch.save({
             "residuals": self.residuals,
-            # "frame_types": self.frame_types,
+            "frame_types": self.frame_types,
             "valid_peak_mask": self.valid_peak_mask,
             "map_to_peak_pos": self.map_to_peak_pos
         }, ckpt_fname)
@@ -183,8 +183,9 @@ class StreamAnalyzer:
         positions = np.arange((bij - d) % pi + d, n - d, pi)
 
         k = (self.valid_peak_mask[positions]).sum()
+        length_sequence = (self.frame_types[positions] == 'P').sum()
         prob = 1 / (2 * d + 1)
-        NFA = stats.binom.sf(k - 0.5, len(positions), prob) * pi * (( n - 1) // 2 - 2 * d)
+        NFA = stats.binom.sf(k - 0.1, length_sequence, prob) * pi * (( n - 1) // 2 - 2 * d)
 
         positions_valid = self.map_to_peak_pos[positions]
         positions_valid = positions_valid[positions_valid >= 0]

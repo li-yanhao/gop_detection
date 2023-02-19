@@ -26,9 +26,11 @@ import json
 
 root_videos = "/mnt/ddisk/yanhao/gop_detection/data/videos_c2"
 root_checkpoints = "/mnt/ddisk/yanhao/gop_detection/data/checkpoints"
-root_inspect = "/mnt/ddisk/yanhao/gop_detection/data/inspect"
 jm_exe = "/mnt/ddisk/yanhao/gop_detection/jm/bin/ldecod.exe"
 ffprobe_exe = "/mnt/ddisk/yanhao/ffmpeg/ffmpeg-git-20220910-amd64-static/ffprobe"
+
+root_inspect = "/mnt/ddisk/yanhao/gop_detection/data/inspect"
+# root_inspect = "/mnt/ddisk/yanhao/gop_detection/data/inspect_set1"
 
 
 def fname_from_vid_to_ckpt(vid_fname:str, method):
@@ -176,14 +178,13 @@ def main_cbr():
     #                 "bowing_cif", "container_cif", "foreman_cif", "news_cif", "sign_irene_cif"]
     
     # list of long videos ( >300 frames)
-    
     valid_prefix = ['akiyo_cif', 'bridge_close_cif', 'bridge_far_cif',
                     'city_4cif', 'crew_4cif', 'deadline_cif',
                     'flower_garden_422_cif', 'football_422_cif', 'foreman_cif',
                     'galleon_422_cif', 'harbour_4cif', 'ice_4cif', 
                     'mad900_cif', 'paris_cif', 'students_cif',
                     'paris_cif', 'soccer_4cif', 'sign_irene_cif']
-    # valid_prefix = ["akiyo_cif"]
+    valid_prefix = ["akiyo_cif"]
 
                     
     cbr_c1_options = [300, 700, 1100]
@@ -192,14 +193,16 @@ def main_cbr():
     GOP_c2_options = [9, 16, 33, 50]
 
     json_file = open("results.json", "w")
+    # json_file = open("results_set1.json", "w")
     json_file.write("[ \n")
 
     for cbr_c1 in cbr_c1_options:
         for cbr_c2 in cbr_c2_options:
             for gop1 in GOP_c1_options:
                 for gop2 in GOP_c2_options:
-                #     if cbr_c1 != 700 or cbr_c2 != 300 or gop1 != 30 or gop2 !=16:
-                #         continue
+                    # if cbr_c1 != 700 or cbr_c2 != 300 or gop1 != 30 or gop2 !=16:
+                    if gop1 != 40 or gop2 != 16:
+                        continue
                     params = {
                         "B1": cbr_c1,
                         "B2": cbr_c2,

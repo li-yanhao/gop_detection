@@ -50,7 +50,7 @@ class YAO:
 
         sorted_ind = np.argsort(self.display_nums)
 
-        print("self.SODBs", self.SODBs)
+        # print("self.SODBs", self.SODBs)
         self.frame_types = self.frame_types[sorted_ind][:max_num]
         self.stream_nums = self.stream_nums[sorted_ind][:max_num]
         self.display_nums = self.display_nums[sorted_ind][:max_num]
