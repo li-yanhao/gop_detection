@@ -39,11 +39,15 @@ ffprobe_exe = "/mnt/ddisk/yanhao/ffmpeg/ffmpeg-git-20220910-amd64-static/ffprobe
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', dest='dataset', type=str, choices=["set1c1", "set1c2", "set2c1", "set2c2"])
+parser.add_argument('-d', dest='dataset', type=str, choices=["set1c1", "set1c2", "set2c1", "set2c2", "set3c1", "set3c2"])
+parser.add_argument('-b', dest='bframe', default=False, action='store_true')
+parser.add_argument('--reload', dest='reload', default=False, action='store_true')
 args = parser.parse_args()
-dataset = args.dataset # ["set1c1", "set1c2", "set2c1", "set2c2"]
+
+dataset = args.dataset
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 if "set1" in dataset:
     # list of baseline videos
@@ -52,16 +56,32 @@ if "set1" in dataset:
                     "bowing_cif", "container_cif", "foreman_cif", "news_cif", "sign_irene_cif"]
 # valid_prefix = ["akiyo_cif"]
 elif "set2" in dataset:
-    # list of long videos ( >300 frames)
-    valid_prefix = ['akiyo_cif', 'bridge_close_cif', 'bridge_far_cif',
-                    'city_4cif', 'crew_4cif', 'deadline_cif',
-                    'flower_garden_422_cif', 'football_422_cif', 'foreman_cif',
-                    'galleon_422_cif', 'harbour_4cif', 'ice_4cif', 
-                    'mad900_cif', 'paris_cif', 'students_cif',
-                    'paris_cif', 'soccer_4cif', 'sign_irene_cif']
+    # 12 videos, list of long videos ( >300 frames)
+    valid_prefix = ['akiyo_cif', 'city_4cif', 'crew_4cif', 'deadline_cif',
+                        'flower_garden_422_cif', 'football_422_cif',
+                        'foreman_cif', 'galleon_422_cif', 'harbour_4cif',
+                        'ice_4cif', 'soccer_4cif', 'sign_irene_cif']
+elif "set3" in dataset:
+    # list of very long videos ( >900 frames)
+    # valid_prefix = ['highway',
+    #                 'dinner', 
+    #                 'factory',
+    #                 'students',
+    #                 'bridge_far',
+    #                 'bridge_close',
+    #                 'mad900',
+    #                 'mthr_dotr',
+    #                 'paris', ]
+    valid_prefix = ['bridge_close_cif', 'bridge_far_cif', # 'dinner_1080p30', 'factory_1080p30', 
+                    'highway_cif', 'mad900_cif', 
+                    'mthr_dotr_qcif', 'paris_cif', 'students_cif']
 
-root_inspect = f"/mnt/ddisk/yanhao/gop_detection/data/inspect_{dataset}"
-json_fname = f"results_{dataset}_{timestamp}.json"
+if args.bframe:
+    dataset += 'b'
+
+root_inspect = f"/mnt/ddisk/yanhao/gop_detection/data/inspect_cbr_{dataset}"
+json_fname = f"results_cbr_{dataset}_{timestamp}.json"
+# json_fname = f"dump_c1c2.json"
 
 
 def fname_from_vid_to_ckpt(vid_fname:str, method):
@@ -88,7 +108,7 @@ def decode_one_video(vid_fname:str):
     print(f"Finish decoding {vid_fname}")
 
 
-def test_one_video(vid_fname:str, GOP1, params={}):
+def test_one_video(vid_fname:str, GOP1, params={}, max_num_frames=0):
     """ 
 
     :param vid_fname: the input video filename
@@ -100,10 +120,12 @@ def test_one_video(vid_fname:str, GOP1, params={}):
     has_decoded = False
     
     print(f"Gt G1: = {GOP1}")
+    print(f"max_num_frames: {max_num_frames}")
+
     # 2. PRED
-    analyzer = Chen()
+    analyzer = Chen(max_num=max_num_frames)
     ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "PRED")
-    if not analyzer.load_from_ckpt(ckpt_fname):
+    if args.reload or not analyzer.load_from_ckpt(ckpt_fname):
         if not has_decoded:
             decode_one_video(vid_fname)
             has_decoded = True
@@ -114,9 +136,9 @@ def test_one_video(vid_fname:str, GOP1, params={}):
     print(f"Chen estimation: G1 = {GOP_Chen}")
 
     # 3. Yao
-    analyzer = YAO()
+    analyzer = YAO(max_num=max_num_frames)
     ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "Yao")
-    if not analyzer.load_from_ckpt(ckpt_fname):
+    if args.reload or not analyzer.load_from_ckpt(ckpt_fname):
         if not has_decoded:
             decode_one_video(vid_fname)
             has_decoded = True
@@ -130,9 +152,9 @@ def test_one_video(vid_fname:str, GOP1, params={}):
     print(f"Yao estimation: G1 = {GOP_Yao}")
 
     # 4. Vazquez
-    analyzer = Vazquez()
+    analyzer = Vazquez(max_num=max_num_frames)
     ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "Vazquez")
-    if not analyzer.load_from_ckpt(ckpt_fname):
+    if args.reload or not analyzer.load_from_ckpt(ckpt_fname):
         if not has_decoded:
             decode_one_video(vid_fname)
             has_decoded = True
@@ -145,9 +167,9 @@ def test_one_video(vid_fname:str, GOP1, params={}):
 
 
     # 5. A Contrario
-    analyzer = StreamAnalyzer(epsilon=100000, d=3, start_at_0=True, space="U")
+    analyzer = StreamAnalyzer(epsilon=100000, d=3, start_at_0=True, space="YUV", max_num=max_num_frames)
     ckpt_fname = fname_from_vid_to_ckpt(vid_fname, "aContrario")
-    if not analyzer.load_from_ckpt(ckpt_fname):
+    if args.reload or not analyzer.load_from_ckpt(ckpt_fname):
         if not has_decoded:
             decode_one_video(vid_fname)
             has_decoded = True
@@ -183,33 +205,8 @@ def test_one_video(vid_fname:str, GOP1, params={}):
 
     return result
     
-    
 
-def main():
-
-    crf_options = [18, 23, 28]
-    GOP_c1_options = [10, 15, 30, 40]
-    GOP_c2_options = [9, 16, 33, 50]
-
-
-    for crf_c1 in crf_options:
-        for gop1 in GOP_c1_options:
-            for crf_c2 in crf_options:
-                crf_c2 = 23
-                for gop2 in GOP_c2_options:
-                    in_dir = os.path.join(root_videos, 
-                        f"crf{crf_c1:02d}_c1", f"gop{gop1:02d}_c1",
-                        f"crf{crf_c2:02d}_c2", f"gop{gop2:02d}_c2")
-                    vid_fnames = glob.glob(os.path.join(in_dir, "*.h264"))
-                    vid_fnames.sort()
-                    for vid_fname in vid_fnames:
-                        try:
-                            test_one_video(vid_fname, gop1)
-                        except:
-                            continue
-                    break
-
-def main_videos_c1():
+def main_videos_c1(exp_config:dict):
     os.makedirs(root_inspect, exist_ok=True)
 
     cbr_c1_options = [300, 700, 1100]
@@ -229,13 +226,17 @@ def main_videos_c1():
                 "G2": -1
             }
 
-            in_dir = os.path.join(root_videos, 
+            in_dir = root_videos
+            if args.bframe:
+                in_dir = os.path.join(in_dir, "bframe")
+            in_dir = os.path.join(in_dir, 
                 f"cbr{cbr_c1}_c1", f"gop{gop1:02d}_c1")
+            
             # vid_fnames = glob.glob(os.path.join(in_dir, "*.h264"))
             vid_fnames = [os.path.join(in_dir, s + ".h264") for s in valid_prefix]
             for i in range(len(vid_fnames)):
                 vid_fname = vid_fnames[i]
-                result = test_one_video(vid_fname, gop1, params)
+                result = test_one_video(vid_fname, gop1, params, max_num_frames=exp_config['max_num_frames'])
                 print(result)
                 json.dump(result, json_file, indent=4)
                 json_file.write(", \n")
@@ -253,7 +254,7 @@ def main_videos_c1():
 
 
 
-def main_videos_c2():
+def main_videos_c2(exp_config:dict):
     os.makedirs(root_inspect, exist_ok=True)
 
     cbr_c1_options = [300, 700, 1100]
@@ -270,9 +271,6 @@ def main_videos_c2():
         for gop1 in GOP_c1_options:
             for cbr_c2 in cbr_c2_options:
                 for gop2 in GOP_c2_options:
-                    # if cbr_c1 != 700 or cbr_c2 != 300 or gop1 != 30 or gop2 !=16:
-                    # if gop1 != 40 or gop2 != 16:
-                        # continue
                     params = {
                         "B1": cbr_c1,
                         "B2": cbr_c2,
@@ -280,7 +278,11 @@ def main_videos_c2():
                         "G2": gop2
                     }
 
-                    in_dir = os.path.join(root_videos, 
+                    in_dir = root_videos
+                    if exp_config['bframe']:
+                        in_dir = os.path.join(in_dir, 'bframe')
+                    
+                    in_dir = os.path.join(in_dir, 
                         f"cbr{cbr_c1}_c1", f"gop{gop1:02d}_c1",
                         f"cbr{cbr_c2}_c2", f"gop{gop2:02d}_c2")
                     # vid_fnames = glob.glob(os.path.join(in_dir, "*.h264"))
@@ -288,7 +290,7 @@ def main_videos_c2():
 
                     for i in range(len(vid_fnames)):
                         vid_fname = vid_fnames[i]
-                        result = test_one_video(vid_fname, gop1, params)
+                        result = test_one_video(vid_fname, gop1, params, exp_config['max_num_frames'])
                         print(result)
                         json.dump(result, json_file, indent=4)
                         json_file.write(", \n")
@@ -305,8 +307,15 @@ def main_videos_c2():
         json_file.write("] \n")
 
 
+
+
 if __name__ == "__main__":
+    exp_config = {
+        "max_num_frames": 400,
+        "bframe": False
+    }
+
     if "c1" in dataset:
-        main_videos_c1()
+        main_videos_c1(exp_config)
     else:
-        main_videos_c2()
+        main_videos_c2(exp_config)

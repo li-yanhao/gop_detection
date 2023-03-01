@@ -10,13 +10,15 @@ import torch
 
 
 class YAO:
-    def __init__(self):
+    def __init__(self, max_num):
         self.frame_types = None
         self.stream_nums = None
         self.display_nums = None
         self.detected_result = {}
 
         self.SODBs = None
+
+        self.max_num = max_num
 
     def load_SODB(self, vid_fname, ffprobe_exe="ffprobe"):
         """
@@ -118,6 +120,8 @@ class YAO:
         self.Et_features[I_indices] = self.SODBs[I_indices] / self.SMB_features[I_indices]
 
     def detect_periodic_signal(self):
+        self.Et_features = self.Et_features[:self.max_num]
+
         T = len(self.Et_features)
         G_max = min(150, T // 10)
         G_candidates = np.arange(2, G_max+1)

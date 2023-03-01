@@ -10,12 +10,13 @@ import torch
 epsilon = 1e-5
 
 class Chen:
-    def __init__(self):
+    def __init__(self, max_num=100000):
         self.residuals = None
         self.frame_types = None
         self.stream_nums = None
         self.display_nums = None
         self.detected_result = {}
+        self.max_num = max_num
 
         self.S_PRED = None
 
@@ -132,6 +133,8 @@ class Chen:
         plt.show()
 
     def detect_periodic_signal(self):
+        self.S_PRED = self.S_PRED[:self.max_num]
+
         P = np.where(self.S_PRED > 0)[0]
         T = len(self.S_PRED)
 
@@ -253,7 +256,7 @@ def test():
     analyzer = Chen()
     analyzer.load_from_frames(fnames, max_num=1000)
     analyzer.visualize()
-    GOP = analyzer.detect_periodic_signal()
+    GOP, score = analyzer.detect_periodic_signal()
     analyzer.visualize(None)
 
 

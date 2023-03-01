@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 import torch
 
 class StreamAnalyzer:
-    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y"):
+    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=100000):
         self.residuals_Y = None
         self.residuals_U = None
         self.residuals_V = None
@@ -25,7 +25,9 @@ class StreamAnalyzer:
         self.start_at_0 = start_at_0
         self.space = space
 
-    def load_from_frames(self, fnames, space="Y", max_num=10000):
+        self.max_num = max_num
+
+    def load_from_frames(self, fnames, space="Y"):
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -41,23 +43,26 @@ class StreamAnalyzer:
 
         sorted_ind = np.argsort(self.display_nums)
 
-        self.frame_types = self.frame_types[sorted_ind][:max_num]
-        self.stream_nums = self.stream_nums[sorted_ind][:max_num]
-        self.display_nums = self.display_nums[sorted_ind][:max_num]
+        self.frame_types = self.frame_types[sorted_ind]
+        self.stream_nums = self.stream_nums[sorted_ind]
+        self.display_nums = self.display_nums[sorted_ind]
         if space == "Y":
-            self.residuals_Y = residuals[sorted_ind][:max_num]
+            self.residuals_Y = residuals[sorted_ind]
         if space == "U":
-            self.residuals_U = residuals[sorted_ind][:max_num]
+            self.residuals_U = residuals[sorted_ind]
         if space == "V":
-            self.residuals_V = residuals[sorted_ind][:max_num]
+            self.residuals_V = residuals[sorted_ind]
 
     def preprocess(self):
         if self.space == "Y":
             self.residuals = self.residuals_Y.copy()
-        if self.space == "U":
+        elif self.space == "U":
             self.residuals = self.residuals_U.copy()
-        if self.space == "V":
+        elif self.space == "V":
             self.residuals = self.residuals_V.copy()
+        elif self.space == "YUV":
+            self.residuals = self.residuals_Y + self.residuals_U + self.residuals_V
+            
 
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
@@ -106,6 +111,8 @@ class StreamAnalyzer:
         # print(np.where(self.valid_peak_mask)[0])
         # print(self.map_to_peak_pos)
 
+        # I frames cover the I-P residual peaks. An I index and its previous B indice until 
+        # its previous P index are ignored.
         I_indices = np.where(self.frame_types == 'I')[0]
         self.valid_sequence_mask = np.ones(len(self.residuals), dtype=bool)
         for pos in I_indices:
@@ -242,11 +249,20 @@ class StreamAnalyzer:
 
         assert self.d >= 1, "the range of neighborhood must be larger than 1"
 
+        self.residuals_Y = self.residuals_Y[:self.max_num]
+        self.residuals_U = self.residuals_U[:self.max_num]
+        self.residuals_V = self.residuals_V[:self.max_num]
+        self.frame_types = self.frame_types[:self.max_num]
+        
+        # print(self.residuals_U)
+        # print(self.frame_types)
+
         detected_results = []
         for p in range(2 * self.d, len(self.residuals) // 2):
             if self.start_at_0:
                 b_candidates = [0]
-                N_test = len(self.residuals - 1) // 2 - 2 * self.d
+                # N_test = len(self.residuals - 1) // 2 - 2 * self.d
+                N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
             else:
                 b_candidates = np.arange(0, p)
                 N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
@@ -259,7 +275,7 @@ class StreamAnalyzer:
 
         if len(detected_results) == 0:
             print("No periodic residual sequence is detected.")
-            return None
+            return -1, np.inf
 
         best_NFA = self.epsilon
         best_i = 0
@@ -300,7 +316,7 @@ def main():
     import time
     start = time.time()
     analyzer.preprocess(d)
-    gop = analyzer.detect_periodic_signal(d)
+    gop, NFA = analyzer.detect_periodic_signal(d)
     end = time.time()
 
     # vis_fname = "detection_Y_c2.eps"

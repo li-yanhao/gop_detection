@@ -10,7 +10,7 @@ import torch
 
 
 class Vazquez:
-    def __init__(self):
+    def __init__(self, max_num=10000):
         self.frame_types = None
         self.stream_nums = None
         self.display_nums = None
@@ -21,7 +21,9 @@ class Vazquez:
         self.I_arr = None
         self.P = None
 
-    def load_from_frames(self, fnames, max_num=10000):
+        self.max_num = max_num
+
+    def load_from_frames(self, fnames):
         fnames = np.array(fnames)
 
         frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
@@ -48,6 +50,8 @@ class Vazquez:
         self.S_arr = self.S_arr[sorted_indices]
 
     def preprocess(self):
+        
+
         for i in range(len(self.frame_types)):
             if self.frame_types[i] == 'I':
                 if i == 0:
@@ -138,6 +142,11 @@ class Vazquez:
         plt.show()
 
     def detect_periodic_signal(self):
+        
+        # clip
+        self.V_arr = self.V_arr[:self.max_num]
+        self.P = self.P[self.P < self.max_num]
+
         # P = np.where(self.S_PRED > 0)[0]
         # T = len(self.S_PRED)
 
@@ -219,8 +228,8 @@ def test():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
     fnames = glob.glob(os.path.join(root, "imgMB*.png"))
 
-    analyzer = Vazquez()
-    analyzer.load_from_frames(fnames, max_num=1000)
+    analyzer = Vazquez(max_num=100)
+    analyzer.load_from_frames(fnames)
     analyzer.preprocess()
     analyzer.visualize()
     GOP = analyzer.detect_periodic_signal()
