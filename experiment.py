@@ -2,7 +2,7 @@ import numpy as np
 import os
 import glob
 
-from stream_analyzer import StreamAnalyzer
+from aContrario import StreamAnalyzer
 from Chen import Chen
 from Yao import YAO
 from Vazquez import Vazquez

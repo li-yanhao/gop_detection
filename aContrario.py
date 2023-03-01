@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 import torch
 
 class StreamAnalyzer:
-    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=100000):
+    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
         self.residuals_Y = None
         self.residuals_U = None
         self.residuals_V = None
@@ -25,7 +25,7 @@ class StreamAnalyzer:
         self.start_at_0 = start_at_0
         self.space = space
 
-        self.max_num = max_num
+        self.max_num = max_num if max_num > 0 else 100000
 
     def load_from_frames(self, fnames, space="Y"):
         fnames = np.array(fnames)
@@ -249,9 +249,7 @@ class StreamAnalyzer:
 
         assert self.d >= 1, "the range of neighborhood must be larger than 1"
 
-        self.residuals_Y = self.residuals_Y[:self.max_num]
-        self.residuals_U = self.residuals_U[:self.max_num]
-        self.residuals_V = self.residuals_V[:self.max_num]
+        self.residuals = self.residuals[:self.max_num]
         self.frame_types = self.frame_types[:self.max_num]
         
         # print(self.residuals_U)
@@ -270,7 +268,7 @@ class StreamAnalyzer:
             for b in b_candidates:
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
-                    # print(f"periodicity={p} offset={b} NFA={NFA}")
+                    print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
