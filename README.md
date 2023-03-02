@@ -99,6 +99,8 @@ Estimated primary GOP = 31
 NFA = 6.495060661229895e-08
 ```
 
+![](plot.gif)
+
 Basically this will first extract the intermediate data of
 decoding in a temporary folder `gop_dectection/tmp/`, and
 detects double compression using these data. The intermediate
