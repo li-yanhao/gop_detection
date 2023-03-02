@@ -38,8 +38,6 @@ def convert_to_h264(vid_fname:str):
 def decode_one_video(vid_fname:str):
     assert vid_fname.endswith("264")
 
-    os.makedirs(tmp_path, exist_ok=True)
-
     # 1.1 remove existing files
     file_pattern_to_remove = os.path.join(tmp_path, "img*")
     clear_command = f"rm {file_pattern_to_remove}"
@@ -114,6 +112,7 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
 
 
 if __name__ == "__main__":
+    os.makedirs(tmp_path, exist_ok=True)
 
     # 1. convert file to h264
     convert_to_h264(args.input)
