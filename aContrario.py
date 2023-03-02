@@ -4,9 +4,13 @@ import glob
 import matplotlib.pyplot as plt
 import mplcursors
 from scipy import stats
-# from skimage.util.shape import view_as_blocks
 import matplotlib.patches as mpatches
-import torch
+import pandas as pd
+
+import plotly.express as px
+import plotly.graph_objects as go
+import pickle
+
 
 class StreamAnalyzer:
     def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
@@ -108,8 +112,6 @@ class StreamAnalyzer:
                     self.valid_peak_mask[pos] = True
                     self.map_to_peak_pos[pos] = pivot
                     pos -= 1
-        # print(np.where(self.valid_peak_mask)[0])
-        # print(self.map_to_peak_pos)
 
         # I frames cover the I-P residual peaks. An I index and its previous B indice until 
         # its previous P index are ignored.
@@ -122,7 +124,7 @@ class StreamAnalyzer:
 
     def load_from_ckpt(self, ckpt_fname):
         try:
-            checkpoint = torch.load(ckpt_fname)
+            checkpoint = pickle.load( open( ckpt_fname, "rb" ) )
             self.residuals_Y = checkpoint["residuals_Y"]
             self.residuals_U = checkpoint["residuals_U"]
             self.residuals_V = checkpoint["residuals_V"]
@@ -136,9 +138,10 @@ class StreamAnalyzer:
             return False
 
     def save_to_ckpt(self, ckpt_fname):
+
         dir = os.path.dirname(ckpt_fname)
         os.makedirs(dir, exist_ok=True)
-        torch.save({
+        saved_contents = {
             "residuals_Y": self.residuals_Y,
             "residuals_U": self.residuals_U,
             "residuals_V": self.residuals_V,
@@ -146,11 +149,14 @@ class StreamAnalyzer:
             # "valid_peak_mask": self.valid_peak_mask,
             # "map_to_peak_pos": self.map_to_peak_pos,
             # "valid_sequence_mask": self.valid_sequence_mask
-        }, ckpt_fname)
+        }
+
+        pickle.dump(saved_contents, open( ckpt_fname, "wb" ))
+
         return True
 
 
-    def visualize(self, save_fname=None):
+    def visualize_plt(self, save_fname=None):
         fig, ax = plt.subplots(figsize=(20, 5))
 
         colors = []
@@ -173,7 +179,7 @@ class StreamAnalyzer:
                          verticalalignment='center')
 
             p, b, NFA, _ = self.detected_result
-            plt.text(x=2, y=self.residuals.max(), s=f"periodicity={p} \noffset={b} \nNFA={NFA}",
+            plt.text(x=2, y=self.residuals.max(), s=f"period={p} \noffset={b} \nNFA={NFA}",
                      horizontalalignment='center',
                      verticalalignment='center',
                      ha='left', va='top')
@@ -208,14 +214,208 @@ class StreamAnalyzer:
 
         plt.show()
 
+
+    def visualize(self, save_fname=None):
+        color_map = {
+            "I": "red",
+            "P": "blue",
+            "B": "green"
+        }
+
+        df = pd.DataFrame({
+            "frame_type": self.frame_types,
+            "frame_number": self.display_nums,
+            "residuals": self.residuals,
+            "color": [color_map[type] for type in self.frame_types]
+        })
+
+        if self.detected_result is not None:
+            for i in self.detected_result[3]:
+                df.at[i, "color"] = "cyan"
+
+        fig = go.Figure()
+
+        hover_template = "frame number: %{x:d} <br>" \
+                         "residual: %{y:.3f} <br>" \
+                         "frame type: %{customdata}"
+
+        I_df = df.query("color == 'red'")
+        fig.add_trace(go.Bar(
+            x=I_df["frame_number"],
+            y=I_df["residuals"],
+            name='I frame',
+            marker_color="red",
+            customdata=I_df["frame_type"],
+            hovertemplate=hover_template
+        ))
+
+        P_df = df.query("color == 'blue'")
+        fig.add_trace(go.Bar(
+            x=P_df["frame_number"],
+            y=P_df["residuals"],
+            name='P frame',
+            marker_color="blue",
+            customdata=P_df["frame_type"],
+            hovertemplate=hover_template
+        ))
+
+        B_df = df.query("color == 'green'")
+        fig.add_trace(go.Bar(
+            x=B_df["frame_number"],
+            y=B_df["residuals"],
+            name='B frame',
+            marker_color="green",
+            customdata=B_df["frame_type"],
+            hovertemplate=hover_template
+        ))
+
+        abnormal_df = df.query("color == 'cyan'")
+        fig.add_trace(go.Bar(
+            x=abnormal_df["frame_number"],
+            y=abnormal_df["residuals"],
+            name='P frame',
+            marker_color="blue",
+            showlegend=False,
+            customdata=abnormal_df["frame_type"],
+            hovertemplate=hover_template
+        ))
+
+        buttons = list([
+            dict(
+                args=[{"marker.color": ["red", "blue", "green", "blue"],
+                       "name": ["I frame", "P frame", "B frame", "P frame"],
+                       "showlegend": [True, True, True, False]},
+                      [0, 1, 2, 3]],
+                label="raw",
+                method="restyle"
+            ),
+            dict(
+                # args=[{"marker.color": [df["color"]]}, [0]],
+                args=[{"marker.color": ["red", "blue", "green", "cyan"],
+                       "name": ["I frame", "P frame", "B frame", "peak"],
+                       "showlegend": [True, True, True, True]},
+                      [0, 1, 2, 3]],
+                label="detection",
+                method="restyle"
+            )
+        ])
+
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    buttons=buttons,
+                    direction="left",
+                    pad={"r": 10, "t": 10},
+                    showactive=True,
+                    x=0.11,
+                    xanchor="left",
+                    y=1.1,
+                    yanchor="top"
+                ),
+            ]
+        )
+
+        fig.update_layout(
+            xaxis={'title': 'frame number'},
+            yaxis={'title': 'prediction residual'}
+        )
+
+        fig.show()
+        return
+
+    def visualize_bar(self, save_fname=None):
+        label_map = {
+            "I": "I frame",
+            "P": "P frame",
+            "B": "B frame",
+        }
+        # color_map = {
+        #     "I": "red",
+        #     "P": "blue",
+        #     "B": "green"
+        # }
+
+        color_map_raw = {
+            "I frame": "red",
+            "P frame": "blue",
+            "B frame": "green",
+            "abnormal frame": "blue",
+        }
+
+        color_map = {
+            "I frame": "red",
+            "P frame": "blue",
+            "B frame": "green",
+            "abnormal frame": "cyan",
+        }
+
+        df = pd.DataFrame({
+            "frame type": self.frame_types,
+            "frame number": self.display_nums,
+            "residuals": self.residuals,
+            "label": [label_map[type] for type in self.frame_types]
+        })
+
+        if self.detected_result is not None:
+            for i in self.detected_result[3]:
+                # df.at[i, "color"] = "cyan"
+                df.at[i, "label"] = "abnormal frame"
+
+        fig = px.bar(df, x='frame number', y='residuals',
+                     hover_data={"frame type": True,
+                                 "residuals": True,
+                                 'frame number': True,
+                                 "label": False},
+                     color='label',
+                     color_discrete_map=color_map,
+                     labels={'frame type': 'frame type'},
+                     title='Frame residual',
+                     )
+
+        buttons = list([
+            dict(
+                args=[{"color.discrete.map": [color_map_raw]}, [0]],
+                label="raw",
+                method="restyle"
+            ),
+            dict(
+                args=[{"color.discrete.map": [color_map]}, [0]],
+                label="detection",
+                method="restyle"
+            )
+        ])
+
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    buttons=buttons,
+                    direction="left",
+                    pad={"r": 10, "t": 10},
+                    showactive=True,
+                    x=0.11,
+                    xanchor="left",
+                    y=1.1,
+                    yanchor="top"
+                ),
+            ]
+        )
+
+        fig.show()
+        return
+
+
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
 
         :param pi: the tested period
         :param bij: the tested offset
         :param d: the range of neighborhood to valid a peak residual
+        :param N_test: the number of tests
         :return:
         """
+
         n = len(self.residuals)
 
         # the candidate (pi, bi) has periodic indices within the range [d, n-d)
@@ -231,11 +431,6 @@ class StreamAnalyzer:
         else:
             NFA = np.inf
 
-        # if pi == 120:
-        #     print("positions", positions)
-        #     print("self.frame_types[positions]", self.frame_types[positions])
-        #     print(f"pi={pi}, bij={bij}, k={k}, len={length_sequence}, NFA={NFA}")
-
         positions_valid = self.map_to_peak_pos[positions]
         positions_valid = positions_valid[positions_valid >= 0]
         return NFA, positions_valid
@@ -243,8 +438,9 @@ class StreamAnalyzer:
     def detect_periodic_signal(self):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
 
-        :param d: the range of neighborhood to valid a peak residual.
-        :return: the detected periodicity
+        :return:
+            [0] the detected periodicity
+            [1] the NFA of the detection
         """
 
         assert self.d >= 1, "the range of neighborhood must be larger than 1"
@@ -268,20 +464,23 @@ class StreamAnalyzer:
             for b in b_candidates:
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
-                    print(f"periodicity={p} offset={b} NFA={NFA}")
+                    # print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
             print("No periodic residual sequence is detected.")
             return -1, np.inf
 
+        print("Detected candidates are:")
         best_NFA = self.epsilon
         best_i = 0
         for i in range(len(detected_results)):
-            if best_NFA > detected_results[i][2]:
-                best_NFA = detected_results[i][2]
+            p, b, NFA, _ = detected_results[i]
+            print(f"periodicity={p} offset={b} NFA={NFA}")
+            if best_NFA > NFA:
+                best_NFA = NFA
                 best_i = i
-
+        print()
         self.detected_result = detected_results[best_i]
 
         # return the periodicity
@@ -294,7 +493,6 @@ def compute_residual(img_res):
     :return: mean residual
     """
     img_res = np.abs(img_res)
-    # block_reduce(img_res, block_size=(8, 8), func=np.mean)
     return np.mean(img_res)
 
 
@@ -304,23 +502,24 @@ def main():
 
     d = 3
     analyzer = StreamAnalyzer(epsilon=10, start_at_0=False)
-    analyzer.load_from_frames(fnames, max_num=10000)
+    analyzer.load_from_frames(fnames, space='Y')
 
     vis_fname = None
 
-    # vis_fname = "residuals_Y_c2.eps"
     analyzer.visualize(vis_fname)
 
     import time
     start = time.time()
-    analyzer.preprocess(d)
-    gop, NFA = analyzer.detect_periodic_signal(d)
+    analyzer.preprocess()
+    gop, NFA = analyzer.detect_periodic_signal()
     end = time.time()
 
     # vis_fname = "detection_Y_c2.eps"
     analyzer.visualize(vis_fname)
 
-    print("Estimated GOP:", gop)
+    print("Estimated GOP", gop)
+    print("NFA:", NFA)
+
     print("Elapsed time:", end - start)
 
 if __name__ == '__main__':
