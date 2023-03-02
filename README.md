@@ -10,8 +10,8 @@ The project consists of two parts:
 intermediate data during the decompression. At present it can
 extract the prediction residuals, macroblock types, frame types,
 display order and picture coding order. The extractor is based on the
-JM software (https://iphome.hhi.de/suehring/tml/) 
-and its extension (https://vqeg.github.io/software-tools/encoding/modified-avc-codec/).
+[JM software](https://iphome.hhi.de/suehring/tml/) 
+and its [extension](https://vqeg.github.io/software-tools/encoding/modified-avc-codec/).
 * An _a Contrario_ detector that detects potential periodic sequence
 of residual peaks in P-frames and validate the sequence if the Number
 of False Alarms (NFA) is significantly small.
