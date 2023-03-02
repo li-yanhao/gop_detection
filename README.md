@@ -1,4 +1,4 @@
-# _A Contrario_ Detection of H.264 Video Double Compression
+# A Contrario Detection of H.264 Video Double Compression
 
 
 This is a project detecting whether a video has been recompressed,
@@ -65,11 +65,13 @@ use 3rd-party tool to install ffmpeg:
    make -j
    ```
 
-4. Install the python requirements for the _a Contrario_ detector. Of course, it's recommended to install them
-in an environment.
+4. Install the python requirements for the _a Contrario_ detector.
+The code was tested in python 3.8.
    ```bash
-   (TBD)
-   pip install requirements.txt
+   conda create --name myenv python=3.8 # skip this step if use your custom env
+   conda activate myenv
+   
+   pip install -r requirements.txt
    ```
 
 Done! Now all the prerequisites are installed.
