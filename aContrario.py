@@ -7,7 +7,6 @@ from scipy import stats
 import matplotlib.patches as mpatches
 import pandas as pd
 
-import plotly.express as px
 import plotly.graph_objects as go
 import pickle
 
@@ -129,9 +128,6 @@ class StreamAnalyzer:
             self.residuals_U = checkpoint["residuals_U"]
             self.residuals_V = checkpoint["residuals_V"]
             self.frame_types = checkpoint["frame_types"]
-            # self.valid_peak_mask = checkpoint["valid_peak_mask"]
-            # self.valid_sequence_mask = checkpoint["valid_sequence_mask"]
-            # self.map_to_peak_pos = checkpoint["map_to_peak_pos"]
 
             return True
         except:
@@ -146,9 +142,6 @@ class StreamAnalyzer:
             "residuals_U": self.residuals_U,
             "residuals_V": self.residuals_V,
             "frame_types": self.frame_types,
-            # "valid_peak_mask": self.valid_peak_mask,
-            # "map_to_peak_pos": self.map_to_peak_pos,
-            # "valid_sequence_mask": self.valid_sequence_mask
         }
 
         pickle.dump(saved_contents, open( ckpt_fname, "wb" ))
@@ -206,14 +199,10 @@ class StreamAnalyzer:
                                position=(0, 20), anncoords="offset points")
             sel.annotation.xy = (x, y + height)
 
-        # plt.xticks(frame_numbers)
-        # plt.yticks(np.arange(0, residuals.max(), 10))
-
         if save_fname is not None:
             plt.savefig(save_fname, bbox_inches='tight')
 
         plt.show()
-
 
     def visualize(self, save_fname=None):
         color_map = {
@@ -322,89 +311,6 @@ class StreamAnalyzer:
         )
 
         fig.show()
-        return
-
-    def visualize_bar(self, save_fname=None):
-        label_map = {
-            "I": "I frame",
-            "P": "P frame",
-            "B": "B frame",
-        }
-        # color_map = {
-        #     "I": "red",
-        #     "P": "blue",
-        #     "B": "green"
-        # }
-
-        color_map_raw = {
-            "I frame": "red",
-            "P frame": "blue",
-            "B frame": "green",
-            "abnormal frame": "blue",
-        }
-
-        color_map = {
-            "I frame": "red",
-            "P frame": "blue",
-            "B frame": "green",
-            "abnormal frame": "cyan",
-        }
-
-        df = pd.DataFrame({
-            "frame type": self.frame_types,
-            "frame number": self.display_nums,
-            "residuals": self.residuals,
-            "label": [label_map[type] for type in self.frame_types]
-        })
-
-        if self.detected_result is not None:
-            for i in self.detected_result[3]:
-                # df.at[i, "color"] = "cyan"
-                df.at[i, "label"] = "abnormal frame"
-
-        fig = px.bar(df, x='frame number', y='residuals',
-                     hover_data={"frame type": True,
-                                 "residuals": True,
-                                 'frame number': True,
-                                 "label": False},
-                     color='label',
-                     color_discrete_map=color_map,
-                     labels={'frame type': 'frame type'},
-                     title='Frame residual',
-                     )
-
-        buttons = list([
-            dict(
-                args=[{"color.discrete.map": [color_map_raw]}, [0]],
-                label="raw",
-                method="restyle"
-            ),
-            dict(
-                args=[{"color.discrete.map": [color_map]}, [0]],
-                label="detection",
-                method="restyle"
-            )
-        ])
-
-        fig.update_layout(
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    buttons=buttons,
-                    direction="left",
-                    pad={"r": 10, "t": 10},
-                    showactive=True,
-                    x=0.11,
-                    xanchor="left",
-                    y=1.1,
-                    yanchor="top"
-                ),
-            ]
-        )
-
-        fig.show()
-        return
-
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
@@ -448,14 +354,10 @@ class StreamAnalyzer:
         self.residuals = self.residuals[:self.max_num]
         self.frame_types = self.frame_types[:self.max_num]
         
-        # print(self.residuals_U)
-        # print(self.frame_types)
-
         detected_results = []
         for p in range(2 * self.d, len(self.residuals) // 2):
             if self.start_at_0:
                 b_candidates = [0]
-                # N_test = len(self.residuals - 1) // 2 - 2 * self.d
                 N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
             else:
                 b_candidates = np.arange(0, p)
