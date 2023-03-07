@@ -14,9 +14,6 @@ ENV bin /workdir/bin/
 RUN mkdir -p $bin/tmp
 
 
-WORKDIR $bin/jm
-RUN make -j
-
 WORKDIR $bin
 
 RUN echo "Hi I'm here"
@@ -34,6 +31,12 @@ RUN echo "Hi I'm here"
 
 # copy the code to $bin
 COPY . .
+
+
+
+WORKDIR $bin/jm
+RUN make -j
+
 
 
 # the execution will happen in the folder /workdir/exec
