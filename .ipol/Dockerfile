@@ -12,7 +12,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt && rm requirements.txt
 
 ENV bin /workdir/bin/
 RUN mkdir -p $bin
+
 WORKDIR $bin
+RUN mkdir tmp
 
 RUN echo "Hi I'm here"
 
