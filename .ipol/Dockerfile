@@ -35,7 +35,7 @@ COPY . .
 
 
 WORKDIR $bin/jm
-RUN make -j
+RUN make -j ldecod
 
 
 
