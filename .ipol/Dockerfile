@@ -11,10 +11,13 @@ RUN pip3 install --no-cache-dir -r requirements.txt && rm requirements.txt
 
 
 ENV bin /workdir/bin/
-RUN mkdir -p $bin
+RUN mkdir -p $bin/tmp
+
+
+WORKDIR $bin/jm
+RUN make -j
 
 WORKDIR $bin
-RUN mkdir tmp
 
 RUN echo "Hi I'm here"
 
@@ -32,7 +35,6 @@ RUN echo "Hi I'm here"
 # copy the code to $bin
 COPY . .
 
-RUN ls jm/
 
 # the execution will happen in the folder /workdir/exec
 # it will be created by IPOL
