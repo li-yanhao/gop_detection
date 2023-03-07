@@ -8,7 +8,11 @@ from aContrario import StreamAnalyzer
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', type=str)
+parser.add_argument('-d', dest="d", type=int, default=3)
+parser.add_argument('--epsilon', dest="epsilon", type=float, default=1.0)
+
 parser.add_argument('--no_show', action="store_false")
+
 args = parser.parse_args()
 
 
@@ -74,7 +78,7 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
         decode_one_video(vid_fname)
 
     # 2. A Contrario
-    analyzer = StreamAnalyzer(epsilon=1, d=3, start_at_0=False, space="U", max_num=max_num_frames)
+    analyzer = StreamAnalyzer(epsilon=1, d=2, start_at_0=False, space="U", max_num=max_num_frames)
 
     inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_s*.npy"))
     inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_s*.npy"))

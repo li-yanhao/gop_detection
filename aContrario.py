@@ -306,6 +306,15 @@ class StreamAnalyzer:
         )
 
         fig.update_layout(
+            # font_family="Courier New",
+            # font_color="blue",
+            # title_font_family="Times New Roman",
+            # title_font_color="red",
+            # legend_title_font_color="green"
+            font_size=14
+        )
+
+        fig.update_layout(
             xaxis={'title': 'frame number'},
             yaxis={'title': 'prediction residual'}
         )
