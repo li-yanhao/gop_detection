@@ -52,6 +52,9 @@ def decode_one_video(vid_fname:str):
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
     if std_msg.stderr != '':
+        print("std err:")
+        print(std_msg.stderr)
+        print()
         raise Exception(f"Decoding {vid_fname} failed! ")
 
     print(f"Decoding finished successfully.")
