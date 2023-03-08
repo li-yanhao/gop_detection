@@ -405,7 +405,7 @@ class StreamAnalyzer:
         best_i = 0
         for i in range(len(detected_results)):
             p, b, NFA, _ = detected_results[i]
-            print(f"periodicity={p} offset={b} NFA={NFA}")
+            print(f"period={p} offset={b} NFA={NFA}")
             if best_NFA > NFA:
                 best_NFA = NFA
                 best_i = i
