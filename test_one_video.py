@@ -26,7 +26,7 @@ h264_vid_fname = "video.h264"
 
 
 def convert_to_h264(vid_fname:str):
-    print(f"Testing {vid_fname} ...")
+    # print(f"Testing {vid_fname} ...")
 
     # 1. Verify the video is encoded by h264
     ffprobe_command = f"ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
