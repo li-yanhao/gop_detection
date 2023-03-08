@@ -337,7 +337,7 @@ class StreamAnalyzer:
 
         # fig.show()
         if save_fname.endswith(".html"):
-            fig.write_html(save_fname, include_plotlyjs=True)
+            fig.write_html(save_fname, include_plotlyjs="cdn")
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
