@@ -320,7 +320,7 @@ class StreamAnalyzer:
 
         fig.update_layout(
             autosize=False,
-            width=1400,
+            width=1200,
             height=500,
             # font_family="Courier New",
             # font_color="blue",
