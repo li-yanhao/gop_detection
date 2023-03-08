@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from aContrario import StreamAnalyzer
-
+from sys import platform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', type=str)
@@ -16,9 +16,11 @@ parser.add_argument('--no_show', action="store_false")
 args = parser.parse_args()
 
 
-# tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
+if platform == "darwin":
+    tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
+# elif platform == "linux" or platform == "linux2":
+#     tmp_path = "/home/ipol"
 
-tmp_path = "/home/ipol"
 jm_exe = os.path.join(os.path.abspath(os.path.dirname(__file__)), "jm/bin/ldecod.exe")
 h264_vid_fname = "video.h264"
 
@@ -134,4 +136,4 @@ if __name__ == "__main__":
         "d": args.d,
         "fig_fname": "result.html"
     }
-    result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=True, visualize=True, ipol_params=ipol_params)
+    result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=True, visualize=True, params_in=ipol_params)
