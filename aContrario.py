@@ -299,7 +299,7 @@ class StreamAnalyzer:
                     showactive=True,
                     x=0.11,
                     xanchor="left",
-                    y=1.1,
+                    y=0.5,
                     yanchor="top"
                 ),
             ]
@@ -320,7 +320,7 @@ class StreamAnalyzer:
 
         fig.update_layout(
             autosize=False,
-            # width=500,
+            width=900,
             height=500,
             # font_family="Courier New",
             # font_color="blue",
