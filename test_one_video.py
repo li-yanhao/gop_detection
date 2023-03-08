@@ -63,7 +63,7 @@ def decode_one_video(vid_fname:str):
     print()
 
 
-def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=-1):
+def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=-1, params_in={}):
     """
     :param vid_fname: the filename of a H264 video.
     :param reload: whether to decode the video or using existing intermediate data. This is useful when the same video
@@ -80,8 +80,13 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
     if reload:
         decode_one_video(vid_fname)
 
+    params = {"d": 3,
+              "space": "U",
+              "fig_fname": "result.html"}
+    params.update(params_in)
+
     # 2. A Contrario
-    analyzer = StreamAnalyzer(epsilon=1, d=2, start_at_0=False, space="U", max_num=max_num_frames)
+    analyzer = StreamAnalyzer(epsilon=1, d=params["d"], start_at_0=False, space=params["space"], max_num=max_num_frames)
 
     inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_s*.npy"))
     inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_s*.npy"))
@@ -100,7 +105,7 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
     print()
 
     if visualize:
-        analyzer.visualize()
+        analyzer.visualize(save_fname=params["fig_fname"])
 
     result = {
         "fname": vid_fname,
@@ -125,4 +130,8 @@ if __name__ == "__main__":
     convert_to_h264(args.input)
 
     # 2. extract decoding data and detect
-    result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=True, visualize=args.no_show)
+    ipol_params = {
+        "d": args.d,
+        "fig_fname": "result.html"
+    }
+    result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=True, visualize=True, ipol_params=ipol_params)

@@ -204,7 +204,7 @@ class StreamAnalyzer:
 
         plt.show()
 
-    def visualize(self, save_fname=None):
+    def visualize(self, save_fname:str=None):
         color_map = {
             "I": "red",
             "P": "blue",
@@ -319,7 +319,9 @@ class StreamAnalyzer:
             yaxis={'title': 'prediction residual'}
         )
 
-        fig.show()
+        # fig.show()
+        if save_fname.endswith(".html"):
+            fig.write_html(save_fname, include_plotlyjs="cdn")
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
