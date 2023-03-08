@@ -16,7 +16,9 @@ parser.add_argument('--no_show', action="store_false")
 args = parser.parse_args()
 
 
-tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
+# tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
+
+tmp_path = "/home/ipol"
 jm_exe = os.path.join(os.path.abspath(os.path.dirname(__file__)), "jm/bin/ldecod.exe")
 h264_vid_fname = "video.h264"
 
@@ -73,8 +75,6 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
         [0] estimated GOP of the first compression
         [1] NFA
     """
-
-
 
     # 1. JM decodes the video and save it to somewhere
     if reload:
