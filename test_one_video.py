@@ -18,8 +18,8 @@ args = parser.parse_args()
 
 if platform == "darwin":
     tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
-# elif platform == "linux" or platform == "linux2":
-#     tmp_path = "/home/ipol"
+elif platform == "linux" or platform == "linux2":
+    tmp_path = "/home/ipol"
 
 jm_exe = os.path.join(os.path.abspath(os.path.dirname(__file__)), "jm/bin/ldecod.exe")
 h264_vid_fname = "video.h264"
