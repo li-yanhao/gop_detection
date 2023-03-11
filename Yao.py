@@ -40,8 +40,8 @@ class YAO:
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        self.stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        # self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
 
         SMB_features = []
         for fname in fnames:
@@ -54,7 +54,7 @@ class YAO:
 
         # print("self.SODBs", self.SODBs)
         self.frame_types = self.frame_types[sorted_ind][:max_num]
-        self.stream_nums = self.stream_nums[sorted_ind][:max_num]
+        # self.stream_nums = self.stream_nums[sorted_ind][:max_num]
         self.display_nums = self.display_nums[sorted_ind][:max_num]
         self.SODBs = self.SODBs[sorted_ind][:max_num]
         self.SMB_features = self.SMB_features[sorted_ind][:max_num]

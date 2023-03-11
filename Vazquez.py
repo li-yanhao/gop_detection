@@ -27,8 +27,8 @@ class Vazquez:
         fnames = np.array(fnames)
 
         frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        # stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
 
         S_arr = []
         I_arr = []
@@ -45,7 +45,7 @@ class Vazquez:
 
         self.display_nums = display_nums[sorted_indices]
         self.frame_types = frame_types[sorted_indices]
-        self.stream_nums = stream_nums[sorted_indices]
+        # self.stream_nums = stream_nums[sorted_indices]
         self.I_arr = self.I_arr[sorted_indices]
         self.S_arr = self.S_arr[sorted_indices]
 

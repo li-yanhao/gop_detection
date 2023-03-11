@@ -24,8 +24,8 @@ class Chen:
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        self.stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        # self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
 
 
         PRED_arr = []
@@ -55,12 +55,12 @@ class Chen:
         S_MF_arr = median_filter(S_JSD_arr)
         self.S_PRED = np.maximum(S_JSD_arr - S_MF_arr, 0)
 
-        
+
 
         sorted_indices = np.argsort(self.display_nums)
         self.S_PRED = self.S_PRED[sorted_indices]
         self.display_nums = self.display_nums[sorted_indices]
-        self.stream_nums = self.stream_nums[sorted_indices]
+        # self.stream_nums = self.stream_nums[sorted_indices]
         self.frame_types = self.frame_types[sorted_indices]
 
         # suppress I frames
@@ -251,7 +251,7 @@ def compute_phi(S, c, P) -> float:
 
 def test():
     root = "/Users/yli/phd/video_processing/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgU_s*.npy"))
+    fnames = glob.glob(os.path.join(root, "imgU_d*.npy"))
 
     analyzer = Chen()
     analyzer.load_from_frames(fnames, max_num=1000)

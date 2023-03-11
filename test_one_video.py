@@ -45,14 +45,23 @@ def decode_one_video(vid_fname:str):
     # 1.1 remove existing files
     file_pattern_to_remove = os.path.join(tmp_path, "img*")
     clear_command = f"rm {file_pattern_to_remove}"
-    std_msg = subprocess.run(clear_command, shell=True, capture_output=True, text=True)
+    subprocess.run(clear_command, shell=True, capture_output=True, text=True)
 
     # 1.2 jm extracts intermediate files
     inspect_command = f"{jm_exe} -i {vid_fname} -inspect {tmp_path}"
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
     if std_msg.stderr != '':
-        raise Exception(f"Decoding {vid_fname} failed! ")
+        raise Exception(f"Decoding {vid_fname} failed! (from JM)")
+
+    # 1.3 ffmpeg decodes images
+    img_out_pattern = os.path.join(tmp_path, "img%04d.png")
+    ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
+    print(ffmpeg_command)
+    std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
+
+    # if std_msg.stderr != '':
+    #     raise Exception(f"Decoding {vid_fname} failed! (from ffmpeg)")
 
     print(f"Decoding finished successfully.")
     print()
@@ -71,18 +80,16 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
         [1] NFA
     """
 
-
-
     # 1. JM decodes the video and save it to somewhere
     if reload:
         decode_one_video(vid_fname)
 
     # 2. A Contrario
-    analyzer = StreamAnalyzer(epsilon=1, d=2, start_at_0=False, space="U", max_num=max_num_frames)
+    analyzer = StreamAnalyzer(epsilon=1, d=2, start_at_0=False, space="Y", max_num=max_num_frames)
 
-    inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_s*.npy"))
-    inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_s*.npy"))
-    inspect_fnames_V = glob.glob(os.path.join(tmp_path, "imgV_s*.npy"))
+    inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_d*.npy"))
+    inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_d*.npy"))
+    inspect_fnames_V = glob.glob(os.path.join(tmp_path, "imgV_d*.npy"))
 
     # load all data
     analyzer.load_from_frames(inspect_fnames_Y, space="Y")

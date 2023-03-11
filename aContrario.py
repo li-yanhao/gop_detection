@@ -9,7 +9,7 @@ import pandas as pd
 
 import plotly.graph_objects as go
 import pickle
-
+import cv2
 
 class StreamAnalyzer:
     def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
@@ -30,24 +30,58 @@ class StreamAnalyzer:
 
         self.max_num = max_num if max_num > 0 else 100000
 
-    def load_from_frames(self, fnames, space="Y"):
-        fnames = np.array(fnames)
+    def load_from_frames(self, res_fnames, space="Y", img_fnames=None, mask_maker=None):
+        """
 
-        self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        self.stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        :param res_fnames: residual filenames
+        :param space: color space, in {"Y", "U", "V"}
+        :param img_fnames: decoded frames, for mask extraction use
+        :param mask_maker: a function that generates masks from decoded frames, then only the residuals in the
+            masked regions are extracted.
+        :return:
+        """
+
+        print(img_fnames)
+        print(res_fnames)
+
+        if mask_maker is not None:
+            assert img_fnames is not None
+            assert len(img_fnames) == len(res_fnames)
+
+        res_fnames = np.array(res_fnames)
+        res_fnames = np.sort(res_fnames)
+
+        self.frame_types = np.array([fname.split(".")[-2][-1] for fname in res_fnames])
+        # self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in res_fnames])
         residuals = []
-        for fname in fnames:
-            img_res = np.load(fname)
+        for i in range(len(res_fnames)):
+            res_fname = res_fnames[i]
+            img_res = np.load(res_fname)
             img_res = np.squeeze(img_res)
-            residual = compute_residual(img_res)
+
+            if mask_maker is None:
+                residual = compute_residual(img_res)
+            else:
+                img_fname = img_fnames[i]
+                img_bgr = cv2.imread(img_fname)
+                mask = mask_maker.process(img_bgr)
+                if mask is None:
+                    residual = 0
+                elif img_res.shape != mask.shape:
+                    img_res= img_res[:mask.shape[0], :mask.shape[1]]
+                    residual = compute_residual(img_res, mask)
+
             residuals.append(residual)
         residuals = np.array(residuals)
+
+        print("res_fnames")
+        print(res_fnames)
 
         sorted_ind = np.argsort(self.display_nums)
 
         self.frame_types = self.frame_types[sorted_ind]
-        self.stream_nums = self.stream_nums[sorted_ind]
+        # self.stream_nums = self.stream_nums[sorted_ind]
         self.display_nums = self.display_nums[sorted_ind]
         if space == "Y":
             self.residuals_Y = residuals[sorted_ind]
@@ -398,26 +432,34 @@ class StreamAnalyzer:
         return self.detected_result[0], best_NFA
 
 
-def compute_residual(img_res):
+def compute_residual(img_res, mask=None):
     """
     :param img_res: of size (H, W)
+    :param mask: of size (H, W)
     :return: mean residual
     """
-    img_res = np.abs(img_res)
-    return np.mean(img_res)
+    if mask is None:
+        return np.mean(np.abs(img_res))
+    else:
+        return (np.abs(img_res) * mask).sum() / mask.sum()
 
 
 def main():
-    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
+    root = "/Users/yli/phd/video_processing/gop_detection/tmp"
+    fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
 
-    d = 3
-    analyzer = StreamAnalyzer(epsilon=10, start_at_0=False)
-    analyzer.load_from_frames(fnames, space='Y')
+    analyzer = StreamAnalyzer(epsilon=1, start_at_0=False, d=3, space="Y")
 
-    vis_fname = None
+    from face_segmenter import FaceSegmenter
+    mask_maker = FaceSegmenter()
 
-    analyzer.visualize(vis_fname)
+    bgr_fnames = glob.glob(os.path.join(root, f"img0*.png"))
+    bgr_fnames.sort()
+
+    analyzer.load_from_frames(fnames, space='Y', img_fnames=bgr_fnames, mask_maker=mask_maker)
+
+
+    # analyzer.visualize()
 
     import time
     start = time.time()
@@ -425,12 +467,10 @@ def main():
     gop, NFA = analyzer.detect_periodic_signal()
     end = time.time()
 
-    # vis_fname = "detection_Y_c2.eps"
-    analyzer.visualize(vis_fname)
+    analyzer.visualize()
 
     print("Estimated GOP", gop)
     print("NFA:", NFA)
-
     print("Elapsed time:", end - start)
 
 if __name__ == '__main__':
