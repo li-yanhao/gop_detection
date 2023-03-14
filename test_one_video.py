@@ -102,9 +102,14 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
     analyzer.preprocess()
 
     GOP_aCont, NFA_aCont = analyzer.detect_periodic_signal()
-    print(f"Estimated primary GOP = {GOP_aCont}")
-    print(f"NFA = {NFA_aCont}", )
-    print()
+
+    if GOP_aCont > 0:
+        print(f"Significant recompression trace is detected, with the following results:")
+        print(f"Estimated primary GOP = {GOP_aCont}")
+        print(f"NFA = {NFA_aCont}", )
+    else:
+        print(f"No recompression trace is detected.")
+        print()
 
     if visualize:
         analyzer.visualize(save_fname=params["fig_fname"])

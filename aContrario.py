@@ -34,8 +34,8 @@ class StreamAnalyzer:
         fnames = np.array(fnames)
 
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        self.stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+        self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
         residuals = []
         for fname in fnames:
             img_res = np.load(fname)
