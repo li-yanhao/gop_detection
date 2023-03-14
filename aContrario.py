@@ -397,7 +397,7 @@ class StreamAnalyzer:
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
-            print("No periodic residual sequence is detected.")
+            # print("No periodic residual sequence is detected.")
             return -1, np.inf
 
         print("Detected candidates are:")
