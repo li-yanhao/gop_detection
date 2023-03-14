@@ -90,9 +90,9 @@ def test_one_video(vid_fname: str, reload=True, visualize=False, max_num_frames=
     # 2. A Contrario
     analyzer = StreamAnalyzer(epsilon=1, d=params["d"], start_at_0=False, space=params["space"], max_num=max_num_frames)
 
-    inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_s*.npy"))
-    inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_s*.npy"))
-    inspect_fnames_V = glob.glob(os.path.join(tmp_path, "imgV_s*.npy"))
+    inspect_fnames_Y = glob.glob(os.path.join(tmp_path, "imgY_d*.npy"))
+    inspect_fnames_U = glob.glob(os.path.join(tmp_path, "imgU_d*.npy"))
+    inspect_fnames_V = glob.glob(os.path.join(tmp_path, "imgV_d*.npy"))
 
     # load all data
     analyzer.load_from_frames(inspect_fnames_Y, space="Y")

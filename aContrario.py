@@ -2,7 +2,7 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
-import mplcursors
+# import mplcursors
 from scipy import stats
 import matplotlib.patches as mpatches
 import pandas as pd
@@ -36,6 +36,7 @@ class StreamAnalyzer:
         self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
         self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
         self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
+
         residuals = []
         for fname in fnames:
             img_res = np.load(fname)
@@ -148,62 +149,6 @@ class StreamAnalyzer:
 
         return True
 
-
-    def visualize_plt(self, save_fname=None):
-        fig, ax = plt.subplots(figsize=(20, 5))
-
-        colors = []
-        for type in self.frame_types:
-            if type == 'I':
-                colors.append('red')
-            elif type == 'P':
-                colors.append('blue')
-            elif type == 'B':
-                colors.append('green')
-            else:
-                raise Exception(f"Invalid type {type}")
-
-        # use cyan color for detected periodic residuals
-        if self.detected_result is not None:
-            for i in self.detected_result[3]:
-                colors[i] = 'cyan'
-                plt.text(x=i, y=self.residuals[i]+0.1, s=str(i),
-                         horizontalalignment='center',
-                         verticalalignment='center')
-
-            p, b, NFA, _ = self.detected_result
-            plt.text(x=2, y=self.residuals.max(), s=f"period={p} \noffset={b} \nNFA={NFA}",
-                     horizontalalignment='center',
-                     verticalalignment='center',
-                     ha='left', va='top')
-
-        bars = ax.bar(self.display_nums, self.residuals, color=colors)
-
-        color_patches = []
-        color_patches.append(mpatches.Patch(color='red', label='I frame'))
-        color_patches.append(mpatches.Patch(color='blue', label='P frame'))
-        color_patches.append(mpatches.Patch(color='green', label='B frame'))
-        if self.detected_result is not None:
-            color_patches.append(mpatches.Patch(color='cyan', label='detected change frame'))
-        ax.legend(handles=color_patches)
-
-        plt.xlabel('frame number')
-        plt.ylabel('residual')
-        plt.title('Frame residual')
-
-        cursor = mplcursors.cursor(hover=mplcursors.HoverMode.Transient)
-        @cursor.connect("add")
-        def on_add(sel):
-            x, y, width, height = sel.artist[sel.index].get_bbox().bounds
-            sel.annotation.set(text=f"num={round(x)}, res={height:.2f} \ntype={self.frame_types[sel.index]}",
-                               position=(0, 20), anncoords="offset points")
-            sel.annotation.xy = (x, y + height)
-
-        if save_fname is not None:
-            plt.savefig(save_fname, bbox_inches='tight')
-
-        plt.show()
-
     def visualize(self, save_fname:str=None):
         color_map = {
             "I": "red",
@@ -262,9 +207,9 @@ class StreamAnalyzer:
         fig.add_trace(go.Bar(
             x=abnormal_df["frame_number"],
             y=abnormal_df["residuals"],
-            name='P frame',
-            marker_color="blue",
-            showlegend=False,
+            name='peak',
+            marker_color="cyan",
+            showlegend=True,
             customdata=abnormal_df["frame_type"],
             hovertemplate=hover_template
         ))
@@ -275,11 +220,10 @@ class StreamAnalyzer:
                        "name": ["I frame", "P frame", "B frame", "P frame"],
                        "showlegend": [True, True, True, False]},
                       [0, 1, 2, 3]],
-                label="raw",
+                label="residual histogram",
                 method="restyle"
             ),
             dict(
-                # args=[{"marker.color": [df["color"]]}, [0]],
                 args=[{"marker.color": ["red", "blue", "green", "cyan"],
                        "name": ["I frame", "P frame", "B frame", "peak"],
                        "showlegend": [True, True, True, True]},
@@ -427,7 +371,7 @@ def compute_residual(img_res):
 
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
+    fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
 
     d = 3
     analyzer = StreamAnalyzer(epsilon=10, start_at_0=False)
