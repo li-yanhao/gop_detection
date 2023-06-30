@@ -3,13 +3,17 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import mplcursors
+import scipy.signal
+import scipy.fft
 from scipy import stats
 import matplotlib.patches as mpatches
 import pandas as pd
+import skimage.util
 
 import plotly.graph_objects as go
 import pickle
 import cv2
+
 
 class StreamAnalyzer:
     def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
@@ -41,12 +45,9 @@ class StreamAnalyzer:
         :return:
         """
 
-        print(img_fnames)
-        print(res_fnames)
-
         if mask_maker is not None:
             assert img_fnames is not None
-            assert len(img_fnames) == len(res_fnames)
+            assert len(img_fnames) == len(res_fnames), f"len(img_fnames)={len(img_fnames)}, len(res_fnames)={len(res_fnames)}"
 
         res_fnames = np.array(res_fnames)
         res_fnames = np.sort(res_fnames)
@@ -60,28 +61,42 @@ class StreamAnalyzer:
             img_res = np.load(res_fname)
             img_res = np.squeeze(img_res)
 
+            # TODO: make it automatic
+            # img_res = cv2.rotate(img_res, cv2.ROTATE_90_CLOCKWISE)
+
+            # cv2.imshow("img_res", img_res)
+            # cv2.waitKey(0)
+
             if mask_maker is None:
                 residual = compute_residual(img_res)
             else:
                 img_fname = img_fnames[i]
                 img_bgr = cv2.imread(img_fname)
+
+                # TODO: make it automatic
+                # img_bgr = cv2.rotate(img_bgr, cv2.ROTATE_90_CLOCKWISE)
+
+                # cv2.imshow("img_bgr", img_bgr)
+                # cv2.waitKey(0)
+
                 mask = mask_maker.process(img_bgr)
+                # print("mask", mask.sum())
+
                 if mask is None:
                     residual = 0
-                elif img_res.shape != mask.shape:
-                    img_res= img_res[:mask.shape[0], :mask.shape[1]]
+                else:
+                    if img_res.shape != mask.shape:
+                        img_res= img_res[:mask.shape[0], :mask.shape[1]]
+                    mask_save_root = "/Users/yli/phd/video_processing/gop_detection/tmp_mask"
+                    cv2.imwrite(f"{mask_save_root}/mask_{i:04d}.png", (mask * 255).astype(np.uint8))
                     residual = compute_residual(img_res, mask)
 
             residuals.append(residual)
         residuals = np.array(residuals)
 
-        print("res_fnames")
-        print(res_fnames)
-
         sorted_ind = np.argsort(self.display_nums)
 
         self.frame_types = self.frame_types[sorted_ind]
-        # self.stream_nums = self.stream_nums[sorted_ind]
         self.display_nums = self.display_nums[sorted_ind]
         if space == "Y":
             self.residuals_Y = residuals[sorted_ind]
@@ -100,7 +115,6 @@ class StreamAnalyzer:
         elif self.space == "YUV":
             self.residuals = self.residuals_Y + self.residuals_U + self.residuals_V
             
-
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
@@ -116,12 +130,13 @@ class StreamAnalyzer:
             count = 0
             while count < self.d and pivot + delta >= 0:
                 if self.frame_types[pivot + delta] == 'P':
-                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                    if self.residuals[pivot] <= self.residuals[pivot + delta]:
                         break
                     else:
                         count += 1
                 delta -= 1
 
+            # count = self.d  # TODO: remove this line, just for drawing
             if count < self.d:
                 continue
 
@@ -130,12 +145,13 @@ class StreamAnalyzer:
             count = 0
             while count < self.d and pivot + delta < len(self.residuals):
                 if self.frame_types[pivot + delta] == 'P':
-                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                    if self.residuals[pivot] <= self.residuals[pivot + delta]:
                         break
                     else:
                         count += 1
                 delta += 1
 
+            # count = self.d  # TODO: remove this line, just for drawing
             if count == self.d:
                 self.valid_peak_mask[pivot] = True
                 self.map_to_peak_pos[pivot] = pivot
@@ -297,7 +313,7 @@ class StreamAnalyzer:
             x=abnormal_df["frame_number"],
             y=abnormal_df["residuals"],
             name='P frame',
-            marker_color="blue",
+            marker_color="cyan", # TODO: back to cyan
             showlegend=False,
             customdata=abnormal_df["frame_type"],
             hovertemplate=hover_template
@@ -324,36 +340,35 @@ class StreamAnalyzer:
         ])
 
         fig.update_layout(
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    buttons=buttons,
-                    direction="left",
-                    pad={"r": 10, "t": 10},
-                    showactive=True,
-                    x=0.11,
-                    xanchor="left",
-                    y=1.1,
-                    yanchor="top"
-                ),
-            ]
-        )
-
-        fig.update_layout(
-            # font_family="Courier New",
-            # font_color="blue",
-            # title_font_family="Times New Roman",
-            # title_font_color="red",
-            # legend_title_font_color="green"
-            font_size=14
-        )
-
-        fig.update_layout(
+            font_size=14,
             xaxis={'title': 'frame number'},
             yaxis={'title': 'prediction residual'}
         )
 
+        # button setting (no suggested)
+        # fig.update_layout(
+        #     updatemenus=[
+        #         dict(
+        #             type="buttons",
+        #             buttons=buttons,
+        #             direction="left",
+        #             pad={"r": 10, "t": 10},
+        #             showactive=True,
+        #             x=0.11,
+        #             xanchor="left",
+        #             y=1.1,
+        #             yanchor="top"
+        #         ),
+        #     ]
+        # )
+
         fig.show()
+
+        if save_fname is not None:
+            if save_fname.endswith(".png") or save_fname.endswith("jpg"):
+                fig.write_image(save_fname)
+            if save_fname.endswith("html"):
+                fig.write_html(save_fname)
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
@@ -396,7 +411,6 @@ class StreamAnalyzer:
 
         self.residuals = self.residuals[:self.max_num]
         self.frame_types = self.frame_types[:self.max_num]
-        
         detected_results = []
         for p in range(2 * self.d, len(self.residuals) // 2):
             if self.start_at_0:
@@ -407,9 +421,10 @@ class StreamAnalyzer:
                 N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
 
             for b in b_candidates:
+                # if p != 31 or b != 0: continue  # TODO: remove this, just for drawing
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
-                    # print(f"periodicity={p} offset={b} NFA={NFA}")
+                    print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
@@ -438,15 +453,44 @@ def compute_residual(img_res, mask=None):
     :param mask: of size (H, W)
     :return: mean residual
     """
+
+    # # apply high frequency filter
+    # if mask is None:
+    #     mask = np.ones(img_res.shape)
+    # w = 4 # block size
+    # img_res = img_res[:img_res.shape[0] // w * w, :img_res.shape[1] // w * w]
+    # mask = mask[:img_res.shape[0] // w * w, :img_res.shape[1] // w * w]
+    # kernel = np.ones((w, w))
+    # block_mask = scipy.signal.convolve2d(mask, kernel, mode='valid') / w**2
+    # block_mask = block_mask[::w, ::w]
+    # block_mask[block_mask < 1] = 0
+    # block_mask = block_mask.astype(bool)
+    # res_blocks = skimage.util.view_as_windows(img_res, (w,w), step=(w,w))[block_mask] # N, w, w
+    # dct_blocks = scipy.fft.dctn(res_blocks, type=2, axes=(-1,-2), norm="ortho", overwrite_x=True, workers=8)
+    # high_energy_mask = np.zeros((w, w))
+    #
+    # # T = 0
+    # # for i in range(w):
+    # #     for j in range(w):
+    # #         if i + j > T: high_energy_mask[i, j] = 1
+    # high_energy_mask[:,:] = 1
+    # # high_energy_mask[0, 0] = 0
+    #
+    # high_energy = np.mean(np.sum( (dct_blocks * high_energy_mask[None, ...])**2, axis=(-1, -2) ) ** 0.5 )# np.mean(, axis=(-1,-2,-3))
+    # return high_energy
+
+    # no filter
     if mask is None:
         return np.mean(np.abs(img_res))
     else:
         return (np.abs(img_res) * mask).sum() / mask.sum()
 
 
+
+
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/tmp"
-    fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
+    res_fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
 
     analyzer = StreamAnalyzer(epsilon=1, start_at_0=False, d=3, space="Y")
 
@@ -456,8 +500,7 @@ def main():
     bgr_fnames = glob.glob(os.path.join(root, f"img0*.png"))
     bgr_fnames.sort()
 
-    analyzer.load_from_frames(fnames, space='Y', img_fnames=bgr_fnames, mask_maker=mask_maker)
-
+    analyzer.load_from_frames(res_fnames=res_fnames, space='Y', img_fnames=bgr_fnames, mask_maker=mask_maker)
 
     # analyzer.visualize()
 
@@ -472,6 +515,7 @@ def main():
     print("Estimated GOP", gop)
     print("NFA:", NFA)
     print("Elapsed time:", end - start)
+
 
 if __name__ == '__main__':
     main()

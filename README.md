@@ -109,3 +109,11 @@ the length of the video. You can safely delete `tmp` after
 running, or the program will automatically clear the folder
 before each execution.
 
+
+## TODO list
+
+[ ] Refactor the code
+   [ ] Rewrite the peak detection with convolution
+
+[ ] Add laplace filter before detection
+
