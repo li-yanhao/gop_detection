@@ -108,3 +108,20 @@ the length of the video. You can safely delete `tmp` after
 running, or the program will automatically clear the folder
 before each execution.
 
+
+
+## Bibtex
+```
+@inproceedings{li2023contrario,
+  title={A contrario detection of h. 264 video double compression},
+  author={Li, Yanhao and Gardella, Marina and Bammey, Quentin and Nikoukhah, Tina and Morel, Jean-Michel and Colom, Miguel and von Gioi, Rafael Grompone},
+  booktitle={2023 IEEE International Conference on Image Processing (ICIP)},
+  pages={1765--1769},
+  year={2023},
+  organization={IEEE}
+}
+```
+
+
+Feel free to leave your comments at [Issues](https://github.com/li-yanhao/gop_detection/issues) for any found bugs or any discussion.
+
