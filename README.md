@@ -1,6 +1,8 @@
 # A Contrario Detection of H.264 Video Double Compression
 
-This is the official code of the paper: "A contrario detection of h. 264 video double compression" by Yanhao Li, Marina Gardella, Quentin Bammey, Tina Nikoukhah, Jean-Michel Morel, Miguel Colom and Rafael Grompone von Gioi. In this work we present a novel method for identifying double compression in H.264 codec videos. Our technique exploits the periodicity of frame residuals caused by fixed Group of Pictures (GOP) in the initial compression, and employs an _a contrario_ framework to minimize and control false detections. The proposed method can reliably detect double compression in videos. It does not require threshold tuning, thus enabling automatic detection.
+This is the official code of the paper: "A contrario detection of h. 264 video double compression" by Yanhao Li, Marina Gardella, Quentin Bammey, Tina Nikoukhah, Jean-Michel Morel, Miguel Colom and Rafael Grompone von Gioi. 
+
+In this work we present a novel method for identifying double compression in H.264 codec videos. Our technique exploits the periodicity of frame residuals caused by fixed Group of Pictures (**GOP**) in the initial compression, and employs an _a contrario_ framework to minimize and control false detections. The proposed method can reliably detect double compression in videos. It does not require threshold tuning, thus enabling automatic detection.
 
 
 The project consists of two parts:
@@ -73,10 +75,10 @@ The code was tested in python 3.8.
 
 Done! Now all the prerequisites are installed.
 
-## Usage
-The input video file must be encoded in H.264. It can be a
+## Detect double compression in H.264 video
+The input video file must be encoded in H.264. It can be in any container in the format of
 `.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`
-or `.h264` file.
+or `.h264`.
 ```bash
 python test_one_video.py -i <input_video_filename> 
 ```
