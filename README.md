@@ -36,8 +36,7 @@ use 3rd-party tool to install ffmpeg:
    
     Or install from the official [website](https://ffmpeg.org/download.html).
     
-    No matter which installation method is used, make sure ffmpeg can
-    be run from bash, e.g.:
+    Then make sure ffmpeg can be run from bash, e.g.:
     ```bash
     $ ffmpeg -version
    
