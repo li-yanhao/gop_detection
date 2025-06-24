@@ -6,7 +6,7 @@ This is the official code of the paper: "**A contrario detection of h. 264 video
 
 📄 [Paper](https://hal.science/hal-04225423/file/A_Contrario_Detection_of_H_264_Video_Double_Compression_camera_ready_version.pdf)
 
-🚀 [DEMO](https://ipolcore.ipol.im/demo/clientApp/archive.html?id=77777000399)
+🚀 [DEMO](https://ipolcore.ipol.im/demo/clientApp/demo.html?id=77777000399)
 
 In this work we present a novel method for identifying double compression in H.264 codec videos. Our technique exploits the periodicity of frame residuals caused by fixed Group of Pictures (**GOP**) in the initial compression, and employs an _a contrario_ framework to minimize and control false detections. The proposed method can reliably detect double compression in videos. It does not require threshold tuning, thus enabling automatic detection.
 
