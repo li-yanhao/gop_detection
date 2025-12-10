@@ -61,7 +61,7 @@ use 3rd-party tool to install ffmpeg:
 
 3. Compile the H.264 decoder (JM software)
    ```bash
-   cd gop_detection/jm
+   cd jm
    make -j
    ```
 

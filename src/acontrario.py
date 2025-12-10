@@ -1,71 +1,85 @@
-import numpy as np
 import os
 import glob
-import matplotlib.pyplot as plt
-import mplcursors
-import scipy.signal
-import scipy.fft
+import pickle
+
+import numpy as np
+import pandas as pd
+import cv2
 from scipy import stats
 import matplotlib.patches as mpatches
-import pandas as pd
-import skimage.util
+import matplotlib.pyplot as plt
 
 import plotly.graph_objects as go
-import pickle
-import cv2
+
+import mplcursors
+# from face_segmenter import FaceSegmenter
 
 
-class StreamAnalyzer:
+class AContrarioAnalyser:
     def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
-        self.residuals_Y = None
-        self.residuals_U = None
-        self.residuals_V = None
+        """ Main class for a-contrario analysis of detecting double compression from prediction residuals.
 
-        self.frame_types = None
-        self.stream_nums = None
+        Parameters
+        ----------
+        epsilon : int, optional
+            threshold for the Number of False Alarms (NFA), by default 1
+        d : int, optional
+            number of neighbors to validate a peak residual, by default 3
+        start_at_0 : bool, optional
+            whether the offset b is fixed to 0, by default False
+        space : str, optional
+            color space used for detection, by default "Y"
+        max_num : int, optional
+            maximum number of frames to process, by default -1
+        """
+
+        # frame information
+        self.frame_types = None  # frame types, size (num_frames,), in {"I", "P", "B"}
+        self.stream_nums = None  
         self.display_nums = None
+
+        # preprocessed residuals
+        self.residuals_Y = None  # mean residuals of Y channel, size (num_frames,)
+        self.residuals_U = None  # mean residuals of U channel, size (num_frames,)
+        self.residuals_V = None  # mean residuals of V channel, size (num_frames,)
+
+        # detection results
         self.detected_result = None
         self.valid_sequence_mask = None
 
-        self.epsilon = epsilon
-        self.d = d
-        self.start_at_0 = start_at_0
-        self.space = space
 
-        self.max_num = max_num if max_num > 0 else 100000
+        # parameters of the a contrario detection
+        self.epsilon = epsilon          # the NFA threshold
+        self.d = d                      # the range of neighborhood to valid a peak residual
+        self.start_at_0 = start_at_0    # whether the offset b is fixed to 0
+        self.space = space              # color space used for detection
 
-    def load_from_frames(self, res_fnames, space="Y", img_fnames=None, mask_maker=None):
+        # self.max_num = max_num if max_num > 0 else 
+        self.max_num = max_num if max_num > 0 else np.iinfo(np.int32).max
+
+    def load_frame_info(self, frame_info_list, space, img_fnames=None, mask_maker=None):
         """
 
-        :param res_fnames: residual filenames
-        :param space: color space, in {"Y", "U", "V"}
-        :param img_fnames: decoded frames, for mask extraction use
+        :param frame_info_list: list of FrameInfo, sorted according to display order
+        :param space: color space, in {"Y", "U", "V", "YUV"}
+        :param img_fnames: decoded frames, for mask extraction use, sorted according to frame numbers
         :param mask_maker: a function that generates masks from decoded frames, then only the residuals in the
             masked regions are extracted.
-        :return:
         """
 
-        if mask_maker is not None:
-            assert img_fnames is not None
-            assert len(img_fnames) == len(res_fnames), f"len(img_fnames)={len(img_fnames)}, len(res_fnames)={len(res_fnames)}"
+        self.frame_types = np.array([fi.frame_type for fi in frame_info_list])
+        self.stream_nums = np.array([fi.stream_number for fi in frame_info_list])
+        self.display_nums = np.array([fi.display_number for fi in frame_info_list])
 
-        res_fnames = np.array(res_fnames)
-        res_fnames = np.sort(res_fnames)
+        # if mask_maker is not None:
+        #     assert img_fnames is not None
+        #     assert len(img_fnames) == len(frame_info_list), f"the number of decoded frames {len(img_fnames)} must be the same as the number of residual files {len(frame_info_list)}"
 
-        self.frame_types = np.array([fname.split(".")[-2][-1] for fname in res_fnames])
-        # self.stream_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-3][1:]) for fname in res_fnames])
         residuals = []
-        for i in range(len(res_fnames)):
-            res_fname = res_fnames[i]
+        for i in range(len(frame_info_list)):
+            res_fname = frame_info_list[i].fname
             img_res = np.load(res_fname)
             img_res = np.squeeze(img_res)
-
-            # TODO: make it automatic
-            # img_res = cv2.rotate(img_res, cv2.ROTATE_90_CLOCKWISE)
-
-            # cv2.imshow("img_res", img_res)
-            # cv2.waitKey(0)
 
             if mask_maker is None:
                 residual = compute_residual(img_res)
@@ -73,22 +87,15 @@ class StreamAnalyzer:
                 img_fname = img_fnames[i]
                 img_bgr = cv2.imread(img_fname)
 
-                # TODO: make it automatic
-                # img_bgr = cv2.rotate(img_bgr, cv2.ROTATE_90_CLOCKWISE)
-
-                # cv2.imshow("img_bgr", img_bgr)
-                # cv2.waitKey(0)
-
                 mask = mask_maker.process(img_bgr)
-                # print("mask", mask.sum())
 
                 if mask is None:
                     residual = 0
                 else:
                     if img_res.shape != mask.shape:
                         img_res= img_res[:mask.shape[0], :mask.shape[1]]
-                    mask_save_root = "/Users/yli/phd/video_processing/gop_detection/tmp_mask"
-                    cv2.imwrite(f"{mask_save_root}/mask_{i:04d}.png", (mask * 255).astype(np.uint8))
+                    # mask_save_root = "/Users/yli/phd/video_processing/gop_detection/tmp_mask"
+                    # cv2.imwrite(f"{mask_save_root}/mask_{i:04d}.png", (mask * 255).astype(np.uint8))
                     residual = compute_residual(img_res, mask)
 
             residuals.append(residual)
@@ -345,23 +352,6 @@ class StreamAnalyzer:
             yaxis={'title': 'prediction residual'}
         )
 
-        # button setting (no suggested)
-        # fig.update_layout(
-        #     updatemenus=[
-        #         dict(
-        #             type="buttons",
-        #             buttons=buttons,
-        #             direction="left",
-        #             pad={"r": 10, "t": 10},
-        #             showactive=True,
-        #             x=0.11,
-        #             xanchor="left",
-        #             y=1.1,
-        #             yanchor="top"
-        #         ),
-        #     ]
-        # )
-
         fig.show()
 
         if save_fname is not None:
@@ -369,6 +359,7 @@ class StreamAnalyzer:
                 fig.write_image(save_fname)
             if save_fname.endswith("html"):
                 fig.write_html(save_fname)
+            print("Saved visualized results to:", save_fname)
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
@@ -421,7 +412,6 @@ class StreamAnalyzer:
                 N_test = p * (len(self.residuals - 1) // 2 - 2 * self.d)
 
             for b in b_candidates:
-                # if p != 31 or b != 0: continue  # TODO: remove this, just for drawing
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
                     print(f"periodicity={p} offset={b} NFA={NFA}")
@@ -454,31 +444,6 @@ def compute_residual(img_res, mask=None):
     :return: mean residual
     """
 
-    # # apply high frequency filter
-    # if mask is None:
-    #     mask = np.ones(img_res.shape)
-    # w = 4 # block size
-    # img_res = img_res[:img_res.shape[0] // w * w, :img_res.shape[1] // w * w]
-    # mask = mask[:img_res.shape[0] // w * w, :img_res.shape[1] // w * w]
-    # kernel = np.ones((w, w))
-    # block_mask = scipy.signal.convolve2d(mask, kernel, mode='valid') / w**2
-    # block_mask = block_mask[::w, ::w]
-    # block_mask[block_mask < 1] = 0
-    # block_mask = block_mask.astype(bool)
-    # res_blocks = skimage.util.view_as_windows(img_res, (w,w), step=(w,w))[block_mask] # N, w, w
-    # dct_blocks = scipy.fft.dctn(res_blocks, type=2, axes=(-1,-2), norm="ortho", overwrite_x=True, workers=8)
-    # high_energy_mask = np.zeros((w, w))
-    #
-    # # T = 0
-    # # for i in range(w):
-    # #     for j in range(w):
-    # #         if i + j > T: high_energy_mask[i, j] = 1
-    # high_energy_mask[:,:] = 1
-    # # high_energy_mask[0, 0] = 0
-    #
-    # high_energy = np.mean(np.sum( (dct_blocks * high_energy_mask[None, ...])**2, axis=(-1, -2) ) ** 0.5 )# np.mean(, axis=(-1,-2,-3))
-    # return high_energy
-
     # no filter
     if mask is None:
         return np.mean(np.abs(img_res))
@@ -486,13 +451,11 @@ def compute_residual(img_res, mask=None):
         return (np.abs(img_res) * mask).sum() / mask.sum()
 
 
-
-
 def main():
     root = "/Users/yli/phd/video_processing/gop_detection/tmp"
     res_fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
 
-    analyzer = StreamAnalyzer(epsilon=1, start_at_0=False, d=3, space="Y")
+    analyzer = AContrarioAnalyser(epsilon=1, start_at_0=False, d=3, space="Y")
 
     from face_segmenter import FaceSegmenter
     mask_maker = FaceSegmenter()

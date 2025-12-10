@@ -3,7 +3,7 @@ import glob
 import os
 import subprocess
 
-from aContrario import StreamAnalyzer
+from src.acontrario import AContrarioAnalyser
 
 
 parser = argparse.ArgumentParser()
@@ -14,13 +14,18 @@ parser.add_argument('--space', dest="space", type=str, default="Y")
 parser.add_argument('--no_show', action="store_false")
 parser.add_argument('--plot', dest='plot', type=str, default=None)
 parser.add_argument('--detect_zone', dest='detect_zone', type=str, default="all", choices=['all', 'face', 'background'])
+parser.add_argument('--reload',
+                    action='store_true', 
+                    default=False, 
+                    help='Enable verbose output (default: False)')
+
 
 args = parser.parse_args()
 
 
-tmp_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
-jm_exe = os.path.join(os.path.abspath(os.path.dirname(__file__)), "jm/bin/ldecod.exe")
-h264_vid_fname = "video.h264"
+TMP_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "tmp")
+JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "jm/bin/ldecod.exe")
+H264_VID_FNAME = "video.h264"
 
 
 def get_file_prefix(fname):
@@ -38,7 +43,7 @@ def convert_to_h264(vid_fname:str):
         raise Exception(f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec {found_codec} is found!")
 
     # 2. Convert the video file to .h264 file.
-    out_fname = os.path.join(tmp_path, h264_vid_fname)
+    out_fname = os.path.join(TMP_PATH, H264_VID_FNAME)
     convert_command = f"ffmpeg -i {vid_fname} -an -vcodec copy {out_fname} -y"
     std_msg = subprocess.run(convert_command, shell=True, capture_output=True, text=True)
     return True
@@ -48,12 +53,13 @@ def decode_one_video(vid_fname:str):
     assert vid_fname.endswith("264")
 
     # 1.1 remove existing files
-    file_pattern_to_remove = os.path.join(tmp_path, "img*")
+    file_pattern_to_remove = os.path.join(TMP_PATH, "img*")
     clear_command = f"rm {file_pattern_to_remove}"
     subprocess.run(clear_command, shell=True, capture_output=True, text=True)
 
     # 1.2 jm extracts intermediate files
-    inspect_command = f"{jm_exe} -i {vid_fname} -inspect {tmp_path}"
+    inspect_command = f"{JM_EXE} -i {vid_fname} -inspect {TMP_PATH}"
+    print("inspect_command = ", inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
     if std_msg.stderr != '':
@@ -61,13 +67,10 @@ def decode_one_video(vid_fname:str):
         raise Exception(f"Decoding {vid_fname} failed! (from JM)")
 
     # 1.3 ffmpeg decodes images
-    img_out_pattern = os.path.join(tmp_path, "img%04d.png")
+    img_out_pattern = os.path.join(TMP_PATH, "img%04d.png")
     ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
     print(ffmpeg_command)
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
-
-    # if std_msg.stderr != '':
-    #     raise Exception(f"Decoding {vid_fname} failed! (from ffmpeg)")
 
     print(f"Decoding finished successfully.")
     print()
@@ -99,10 +102,10 @@ def test_one_video(vid_fname:str, reload=True, visualize=False, max_num_frames=-
     params.update(params_in)
 
     # 2. A Contrario
-    analyzer = StreamAnalyzer(epsilon=params["epsilon"], d=params["d"], start_at_0=False,
+    analyzer = AContrarioAnalyser(epsilon=params["epsilon"], d=params["d"], start_at_0=False,
                               space=params["space"], max_num=max_num_frames)
 
-    res_U_fnames = glob.glob(os.path.join(tmp_path, "img" + params["space"] + "_d*.npy"))
+    res_U_fnames = glob.glob(os.path.join(TMP_PATH, "img" + params["space"] + "_d*.npy"))
 
     if params["detect_zone"] == 'all':
         mask_maker = None
@@ -113,7 +116,7 @@ def test_one_video(vid_fname:str, reload=True, visualize=False, max_num_frames=-
         elif params["detect_zone"] == 'background':
             mask_maker = FaceSegmenter(invert=True)
 
-    bgr_fnames = glob.glob(os.path.join(tmp_path, f"img[0-9]*.png"))
+    bgr_fnames = glob.glob(os.path.join(TMP_PATH, f"img[0-9]*.png"))
     bgr_fnames.sort()
 
     analyzer.load_from_frames(res_fnames=res_U_fnames, space=params["space"], img_fnames=bgr_fnames, mask_maker=mask_maker)
@@ -146,9 +149,9 @@ def test_one_video(vid_fname:str, reload=True, visualize=False, max_num_frames=-
 
 
 if __name__ == "__main__":
-    # tmp_path = get_file_prefix(args.input)
+    # TMP_PATH = get_file_prefix(args.input)
 
-    os.makedirs(tmp_path, exist_ok=True)
+    os.makedirs(TMP_PATH, exist_ok=True)
 
     # 1. convert file to h264
     convert_to_h264(args.input)
@@ -156,20 +159,20 @@ if __name__ == "__main__":
     # 2. extract decoding data and detect
     # plot_fname = None
 
-    args.detect_zone = 'all'
-    plot_fname = os.path.basename(args.input).split(".")[0] + "_" + args.space + "_" + args.detect_zone + ".html"
+    # args.detect_zone = 'all'
+    plot_fname = os.path.join("results", os.path.basename(args.input).split(".")[0] + "_" + args.space + "_" + args.detect_zone + ".html")
     params = {"d": args.d, "space": args.space, "epsilon": args.epsilon, "detect_zone": args.detect_zone,
               "plot_fname": plot_fname}
-    result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=False, visualize=args.no_show,
+    result = test_one_video(os.path.join(TMP_PATH, H264_VID_FNAME), reload=args.reload, visualize=args.no_show,
                             params_in=params)
-    print("Zone `all` is done")
+    print(f"Zone `{args.detect_zone}` is done")
     print()
     #
     # args.detect_zone = 'face'
     # plot_fname = os.path.basename(args.input).split(".")[0] + "_" + args.space + "_" + args.detect_zone + ".html"
     # params = {"d": args.d, "space": args.space, "epsilon": args.epsilon, "detect_zone": args.detect_zone,
     #           "plot_fname": plot_fname}
-    # result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=True, visualize=args.no_show,
+    # result = test_one_video(os.path.join(TMP_PATH, H264_VID_FNAME), reload=True, visualize=args.no_show,
     #                         params_in=params)
     # print(f"Zone {args.detect_zone} is done")
     # print()
@@ -178,7 +181,14 @@ if __name__ == "__main__":
     # plot_fname = os.path.basename(args.input).split(".")[0] + "_" + args.space + "_" + args.detect_zone + ".html"
     # params = {"d": args.d, "space": args.space, "epsilon": args.epsilon, "detect_zone": args.detect_zone,
     #           "plot_fname": plot_fname}
-    # result = test_one_video(os.path.join(tmp_path, h264_vid_fname), reload=False, visualize=args.no_show,
+    # result = test_one_video(os.path.join(TMP_PATH, H264_VID_FNAME), reload=False, visualize=args.no_show,
     #                         params_in=params)
     # print(f"Zone {args.detect_zone} is done")
     # print()
+
+
+
+# Usage:
+# python test_one_video.py -i /Users/yli/phd/code/video_processing/MobileFaceSwap/results/001_ElonMusk_hq.mp4 --space Y --detect_zone face --reload
+# python test_one_video.py -i /Users/yli/phd/code/video_processing/MobileFaceSwap/results/001_ElonMusk_hq.mp4 --space Y --detect_zone background --reload
+
