@@ -4,7 +4,6 @@ import pickle
 
 import numpy as np
 import pandas as pd
-import cv2
 from scipy import stats
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -12,7 +11,8 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 import mplcursors
-# from face_segmenter import FaceSegmenter
+from .util import pad_and_crop
+from .residual_info import read_one_residual
 
 
 class AContrarioAnalyser:
@@ -57,46 +57,30 @@ class AContrarioAnalyser:
         # self.max_num = max_num if max_num > 0 else 
         self.max_num = max_num if max_num > 0 else np.iinfo(np.int32).max
 
-    def load_frame_info(self, frame_info_list, space, img_fnames=None, mask_maker=None):
+    def load_frame_info(self, frame_info_list, space, roi_mask=None):
         """
 
         :param frame_info_list: list of FrameInfo, sorted according to display order
         :param space: color space, in {"Y", "U", "V", "YUV"}
         :param img_fnames: decoded frames, for mask extraction use, sorted according to frame numbers
-        :param mask_maker: a function that generates masks from decoded frames, then only the residuals in the
-            masked regions are extracted.
+        :param roi_mask: a binary mask indicating the region of interest for residual computation, by default None
         """
 
         self.frame_types = np.array([fi.frame_type for fi in frame_info_list])
         self.stream_nums = np.array([fi.stream_number for fi in frame_info_list])
         self.display_nums = np.array([fi.display_number for fi in frame_info_list])
 
-        # if mask_maker is not None:
-        #     assert img_fnames is not None
-        #     assert len(img_fnames) == len(frame_info_list), f"the number of decoded frames {len(img_fnames)} must be the same as the number of residual files {len(frame_info_list)}"
-
         residuals = []
         for i in range(len(frame_info_list)):
             res_fname = frame_info_list[i].fname
-            img_res = np.load(res_fname)
+            img_res = read_one_residual(res_fname)
             img_res = np.squeeze(img_res)
 
-            if mask_maker is None:
+            if roi_mask is None:
                 residual = compute_residual(img_res)
             else:
-                img_fname = img_fnames[i]
-                img_bgr = cv2.imread(img_fname)
-
-                mask = mask_maker.process(img_bgr)
-
-                if mask is None:
-                    residual = 0
-                else:
-                    if img_res.shape != mask.shape:
-                        img_res= img_res[:mask.shape[0], :mask.shape[1]]
-                    # mask_save_root = "/Users/yli/phd/video_processing/gop_detection/tmp_mask"
-                    # cv2.imwrite(f"{mask_save_root}/mask_{i:04d}.png", (mask * 255).astype(np.uint8))
-                    residual = compute_residual(img_res, mask)
+                roi_mask = pad_and_crop(roi_mask, img_res.shape[:2])
+                residual = compute_residual(img_res, roi_mask)
 
             residuals.append(residual)
         residuals = np.array(residuals)
@@ -133,8 +117,9 @@ class AContrarioAnalyser:
             # if self.frame_types[pivot - 1] == 'I':
             #     continue
 
-            delta = -1
-            count = 0
+            # compare the pivot with residuals on the left side
+            delta = -1  # shift to left neighbors
+            count = 0  # count of smaller neighbors
             while count < self.d and pivot + delta >= 0:
                 if self.frame_types[pivot + delta] == 'P':
                     if self.residuals[pivot] <= self.residuals[pivot + delta]:
@@ -143,12 +128,12 @@ class AContrarioAnalyser:
                         count += 1
                 delta -= 1
 
-            # count = self.d  # TODO: remove this line, just for drawing
+            # if not enough neighbors on the left side, skip to the next potential peak P frame
             if count < self.d:
                 continue
 
             # compare the pivot with residuals on the right side
-            delta = 1
+            delta = 1  # shift to left neighbors
             count = 0
             while count < self.d and pivot + delta < len(self.residuals):
                 if self.frame_types[pivot + delta] == 'P':
@@ -158,7 +143,6 @@ class AContrarioAnalyser:
                         count += 1
                 delta += 1
 
-            # count = self.d  # TODO: remove this line, just for drawing
             if count == self.d:
                 self.valid_peak_mask[pivot] = True
                 self.map_to_peak_pos[pivot] = pivot
@@ -262,6 +246,11 @@ class AContrarioAnalyser:
         plt.show()
 
     def visualize(self, save_fname=None):
+        ''' Visualize the residuals and detection results using plotly.
+        :param save_fname: if not None, save the visualization to the given filename. The format is determined by the
+            file extension, which can be ".png", ".jpg", or ".html".
+        '''
+
         color_map = {
             "I": "red",
             "P": "blue",
@@ -270,7 +259,7 @@ class AContrarioAnalyser:
 
         df = pd.DataFrame({
             "frame_type": self.frame_types,
-            "frame_number": self.display_nums,
+            "frame_number": self.display_nums + 1, # make frame number start from 1
             "residuals": self.residuals,
             "color": [color_map[type] for type in self.frame_types]
         })

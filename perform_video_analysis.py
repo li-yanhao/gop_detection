@@ -12,11 +12,16 @@ import os
 from src.residual_info import get_sorted_residual_info_list
 from src.acontrario import AContrarioAnalyser
 import glob
-from src.util import decode_frames, decode_residuals, convert_to_h264
+from src.util import decode_frames, decode_residuals, convert_to_h264, pad_and_crop, get_rotation
+from src.residual_info import read_one_residual
 import argparse
+import threading
 
 
 OUTPUT_ROOT = "tmp"
+
+# SAVE_VISUALIZED_PATH = "visualized_results.png"
+SAVE_VISUALIZED_PATH = None
 
 
 def perform_video_analysis(video_path:str, 
@@ -32,6 +37,8 @@ def perform_video_analysis(video_path:str,
     :param max_num: Maximum number of frames to process (-1 for all frames).
     """
 
+    
+
     h264_fname = os.path.join(OUTPUT_ROOT, os.path.basename(video_path).split('.')[0] + ".264") 
 
     # convert the video to h264
@@ -41,16 +48,39 @@ def perform_video_analysis(video_path:str,
         print("Conversion to H264 failed!")
         return None, None
     
-    # decode frames
-    ret, frame_folder = decode_frames(h264_fname, OUTPUT_ROOT)
+    ret_decode_frames, ret_decode_residuals = False, False
+    frame_folder, residual_folder = None, None
+    def decode_frames_task():
+        nonlocal ret_decode_frames, frame_folder
+        print("Decoding frames ...")
+        ret_decode_frames, frame_folder = decode_frames(h264_fname, OUTPUT_ROOT)
+        
 
-    if not ret:
+    def decode_residuals_task():
+        nonlocal ret_decode_residuals, residual_folder
+        print("Decoding residuals ...")
+        ret_decode_residuals, residual_folder = decode_residuals(h264_fname, OUTPUT_ROOT)
+        if not ret_decode_residuals:
+            print("Decoding residuals failed!")
+
+    # Create threads for decoding frames and residuals
+    frame_thread = threading.Thread(target=decode_frames_task)
+    residual_thread = threading.Thread(target=decode_residuals_task)
+
+    # Start both threads
+    frame_thread.start()
+    residual_thread.start()
+
+    # Wait for both threads to finish
+    frame_thread.join()
+    residual_thread.join()
+
+    # Check if either task failed
+    if not ret_decode_frames:
         print("Decoding frames failed!")
         return None, None
-    
-    ret, residual_folder = decode_residuals(h264_fname, OUTPUT_ROOT)
 
-    if not ret:
+    if not ret_decode_residuals:
         print("Decoding residuals failed!")
         return None, None
 
@@ -60,7 +90,7 @@ def perform_video_analysis(video_path:str,
 
     residual_info_list = get_sorted_residual_info_list(folder=residual_folder, space=space)
 
-    analyzer.load_frame_info(frame_info_list=residual_info_list, space=space, img_fnames=None, mask_maker=None)
+    analyzer.load_frame_info(frame_info_list=residual_info_list, space=space, roi_mask=roi_mask)
 
     analyzer.preprocess()
 
@@ -68,6 +98,8 @@ def perform_video_analysis(video_path:str,
     print(f"Estimated primary GOP = {GOP_aCont}")
     print(f"NFA = {NFA_aCont}")
     print()
+
+    analyzer.visualize(SAVE_VISUALIZED_PATH)
 
     frame_fname_list = glob.glob(os.path.join(frame_folder, "*.png"))
     frame_fname_list.sort()
@@ -128,18 +160,19 @@ def select_polygon_roi(video_path):
     # Create the polygon mask
     mask = np.zeros(initial_frame.shape[:2], dtype=np.uint8)
     poly = np.array([[(int(x), int(y)) for x, y in points]], dtype=np.int32)
-    cv2.fillPoly(mask, poly, 255)
+    cv2.fillPoly(mask, poly, 1)
 
-    return mask
+    return mask.astype(bool)
     
 
 class ResultViewer:
-    def __init__(self, master, frame_fname_list, residual_fname_list, roi_used):
+    def __init__(self, master, frame_fname_list, residual_fname_list, rotation, roi_mask=None):
         ''' A Tkinter-based GUI to view video analysis results.
         param master: the Tkinter root window
         param frame_fname_list: list of frame image filenames, already sorted in the display order
         param residual_fname_list: list of residual image filenames, already sorted in the display order
-        param roi_used: whether ROI is used in the analysis
+        param rotation: rotation to correct frame orientation (in degrees, e.g., 0, 90, 180, 270)
+        param roi_mask: binary mask (NumPy array) defining the region of interest used in analysis
         '''
 
         self.master = master
@@ -148,9 +181,27 @@ class ResultViewer:
         
         self.frame_fname_list = frame_fname_list
         self.residual_fname_list = residual_fname_list
-        self.roi_used = roi_used
         self.current_frame_index = 0
-        self.color_space_mode = 'RGB'  # Y, U, V, or RGB (original)
+        self.color_space_mode = 'Y'  # Y, U, V, or RGB (original)
+        self.rotation = rotation
+
+        self.roi_mask = roi_mask
+
+        self.roi_residual_mask = roi_mask
+        
+        if roi_mask is not None:
+            # adjust the size of roi_residual_mask to match the residual image size
+            residual_img = read_one_residual(residual_fname_list[0])
+
+            # rotate the residual_img if needed
+            residual_img = self._correct_rotation(residual_img)
+
+            residual_shape = residual_img.shape[:2]
+            self.roi_residual_mask = pad_and_crop(roi_mask, residual_shape)
+
+
+            print("ROI mask for frame:", self.roi_residual_mask.shape)
+            print("ROI mask for residual:", self.roi_residual_mask.shape)
 
         # 1. Setup Frame for Controls and Statistics
         control_frame = tk.Frame(master)
@@ -158,17 +209,17 @@ class ResultViewer:
         
         # Statistics Display
         # stats_label_text = "\n".join([f"{k}: {v}" for k, v in self.statistics.items()])
-        stats_label_text = f"ROI Used: {'Yes' if self.roi_used else 'No'}"
+        # stats_label_text = f"ROI Used: {'Yes' if self.roi_used else 'No'}"
         # self.stats_label = tk.Label(control_frame, text=stats_label_text, justify=tk.LEFT)
         # self.stats_label.pack(side=tk.LEFT, padx=10)
 
         # Color Space Radio Buttons
-        self.color_mode_var = tk.StringVar(value=self.color_space_mode)
-        modes = ['RGB', 'Y', 'U', 'V']
-        tk.Label(control_frame, text="Color View:").pack(side=tk.LEFT, padx=(20, 5))
-        for mode in modes:
-            tk.Radiobutton(control_frame, text=mode, variable=self.color_mode_var, value=mode, 
-                           command=self.update_frame).pack(side=tk.LEFT)
+        # self.color_mode_var = tk.StringVar(value=self.color_space_mode)
+        # modes = ['RGB', 'Y', 'U', 'V']
+        # tk.Label(control_frame, text="Color View:").pack(side=tk.LEFT, padx=(20, 5))
+        # for mode in modes:
+        #     tk.Radiobutton(control_frame, text=mode, variable=self.color_mode_var, value=mode, 
+        #                    command=self.update_frame).pack(side=tk.LEFT)
 
         # 2. Setup Frame for Image and Navigation
         view_frame = tk.Frame(master)
@@ -182,15 +233,28 @@ class ResultViewer:
         nav_frame = tk.Frame(view_frame)
         nav_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
         
+        # Move navigation buttons to the bottom of the window
+        nav_frame = tk.Frame(master)
+        nav_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
+
         tk.Button(nav_frame, text="<- Previous Frame", command=self.prev_frame).pack(side=tk.LEFT, padx=10)
         self.master.bind("<Left>", lambda event: self.prev_frame())
         self.frame_index_label = tk.Label(nav_frame, text=f"Frame 1 / {len(self.frame_fname_list)}")
         self.frame_index_label.pack(side=tk.LEFT, padx=10)
+
         tk.Button(nav_frame, text="Next Frame ->", command=self.next_frame).pack(side=tk.RIGHT, padx=10)
         self.master.bind("<Right>", lambda event: self.next_frame())
 
         self.update_frame()
 
+    def _correct_rotation(self, frame):
+        if self.rotation == 90:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation == 180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif self.rotation == 270:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
         
     def prev_frame(self):
         if self.current_frame_index > 0:
@@ -203,66 +267,70 @@ class ResultViewer:
             self.update_frame()
 
     def update_frame(self):
-        self.color_space_mode = self.color_mode_var.get()
+        # self.color_space_mode = self.color_mode_var.get()
 
+        # Load the frame image in RGB
         frame_fname = self.frame_fname_list[self.current_frame_index]
-        # load the frame image in RGB
         img_rgb = cv2.cvtColor(cv2.imread(frame_fname, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+        
+        # correct rotation if needed
+        img_rgb = self._correct_rotation(img_rgb)
 
-        # frame_bgr = self.frames[self.current_frame_index]
-        
-        # Apply color space conversion
-        # processed_frame = self._convert_color_space(frame_bgr, self.color_space_mode)
-        
-        # Convert OpenCV image (NumPy array) to PIL Image
-        # img_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-        img_pil = Image.fromarray(img_rgb)
+        if self.roi_mask is not None:
+            # apply roi_mask to img_rgb
+            img_rgb = img_rgb * self.roi_mask[:, :, np.newaxis]
 
-        # resize the image to the half of the display size
-        img_pil = img_pil.resize((img_pil.width // 2, img_pil.height // 2), Image.Resampling.LANCZOS)
+        # Load the residual image in grayscale
+        residual_fname = self.residual_fname_list[self.current_frame_index]
+        img_residual = read_one_residual(residual_fname)
+
+        # correct rotation if needed
+        img_residual = self._correct_rotation(img_residual)
+
+        if self.roi_residual_mask is not None:
+            img_residual = img_residual * self.roi_residual_mask
+
+        # convert img_residual to grayscale 0-255
+        MAX_RESIDUAL_VAL = 10
+        img_residual = np.clip(np.abs(img_residual), 0, MAX_RESIDUAL_VAL) * (255.0 / MAX_RESIDUAL_VAL)
+        img_residual = img_residual.astype(np.uint8)
+        # Convert grayscale residual to RGB for consistent display
+        img_residual_rgb = cv2.cvtColor(img_residual, cv2.COLOR_GRAY2RGB)
         
-        # print("img_pil:", np.array(img_pil))
+
+
+        # Resize both images to half their original size
+        img_rgb = cv2.resize(img_rgb, (img_rgb.shape[1] // 2, img_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
+        img_residual_rgb = cv2.resize(img_residual_rgb, (img_residual_rgb.shape[1] // 2, img_residual_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
+
+        # convert img_residual_rgb to 3-channel grayscale
+        # img_residual_rgb = cv2.cvtColor(img_residual_rgb, cv2.COLOR_GRAY2RGB)
+
+        # crop both images to the same height and width (minimum of the two)
+        height = min(img_rgb.shape[0], img_residual_rgb.shape[0])
+        width = min(img_rgb.shape[1], img_residual_rgb.shape[1])
+        img_rgb = img_rgb[:height, :width, :]
+        img_residual_rgb = img_residual_rgb[:height, :width, :]
+
+        # Concatenate the frame and residual side by side
+        combined_img = np.hstack((img_rgb, img_residual_rgb))
+
+        # Convert the combined image to a PIL Image
+        img_pil = Image.fromarray(combined_img)
+
         # Convert PIL Image to PhotoImage for Tkinter
         self.img_tk = ImageTk.PhotoImage(master=self.master, image=img_pil)
-        
+
         # Update Label and Index Text
         self.image_label.config(image=self.img_tk)
-        # self.image_label.image = self.img_tk  # Prevent garbage collection
         self.frame_index_label.config(text=f"Frame {self.current_frame_index + 1} / {len(self.frame_fname_list)}")
 
-    def _convert_color_space(self, frame_bgr, mode):
-        if mode == 'RGB':
-            # Analysis function returns BGR (default for OpenCV), display is updated to RGB in update_frame
-            return frame_bgr 
-        
-        # Convert BGR to YUV
-        frame_yuv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2YUV)
-        y, u, v = cv2.split(frame_yuv)
-        
-        # Create a new 3-channel image where the selected channel is kept
-        if mode == 'Y':
-            # Y channel (Luminance) on all 3 channels
-            return cv2.merge([y, y, y])
-        elif mode == 'U':
-            # U channel (Chroma)
-            # Merge U with 128 (gray) for Y and V to visualize U component intensity
-            gray_y = np.full_like(y, 128)
-            gray_v = np.full_like(v, 128)
-            return cv2.cvtColor(cv2.merge([gray_y, u, gray_v]), cv2.COLOR_YUV2BGR)
-        elif mode == 'V':
-            # V channel (Chroma)
-            # Merge V with 128 (gray) for Y and U to visualize V component intensity
-            gray_y = np.full_like(y, 128)
-            gray_u = np.full_like(u, 128)
-            return cv2.cvtColor(cv2.merge([gray_y, gray_u, v]), cv2.COLOR_YUV2BGR)
-        
-        return frame_bgr # Default fallback
 
     def on_closing(self):
         # Optional: Clean up resources
         self.master.destroy()
         self.master.quit()
-        print("self.master destroyed.")
+        print("window destroyed.")
 
 
 def main():
@@ -270,7 +338,7 @@ def main():
     parser.add_argument("video_path", type=str, help="Path to the video file to analyze.")
     parser.add_argument("--d", type=int, help="number of neighbors to validate a peak residual (default: 3)", default=3)
     parser.add_argument("--space", type=str, help="color space used for detection (default: Y)", default="Y")
-    parser.add_argument("--epsilon", type=float, help="threshold for the Number of False Alarms (NFA), (default: 1.0)", default=1.0)
+    parser.add_argument("--epsilon", type=float, help="threshold for the Number of False Alarms (NFA), (default: 0.05)", default=0.05)
     parser.add_argument("--max_num", type=float, help="maximum number of frames to process (default: -1)", default=-1)
 
 
@@ -293,13 +361,15 @@ def main():
         # --- Step 3: Run Core Analysis ---
         frame_fname_list, residual_fname_list = perform_video_analysis(args.video_path, d=args.d, space=args.space, epsilon=args.epsilon, max_num=args.max_num, roi_mask=roi_mask)
         
-
+        print("Check the rotation of the video...")
+        rotation = get_rotation(args.video_path)
+        print(f"Rotation: {rotation} degrees")
+        print()
+        
         # --- Step 4: Launch Visualization GUI ---
         viewer_root = tk.Tk()
-        app = ResultViewer(viewer_root, frame_fname_list, residual_fname_list, roi_used)
+        app = ResultViewer(viewer_root, frame_fname_list, residual_fname_list, rotation, roi_mask=roi_mask)
         viewer_root.mainloop()
-
-        print("end of start_analysis_and_viewer()")
 
 
     def on_yes():
@@ -308,7 +378,7 @@ def main():
         nonlocal roi_mask, roi_used
         roi_prompt.destroy()
         # Launch OpenCV-based polygon selector
-        roi_mask = select_polygon_roi(video_path)
+        roi_mask = select_polygon_roi(args.video_path)
         roi_used = roi_mask is not None
         start_analysis_and_viewer()
 
@@ -316,6 +386,7 @@ def main():
 
     def on_no():
         print("No ROI selected, analyzing full frame.")
+        print()
 
         nonlocal roi_used
         roi_prompt.destroy()
@@ -333,10 +404,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # Ensure you have the necessary libraries installed:
-    # pip install opencv-python numpy pillow
     print("Starting application...")
-    # NOTE: To run this, you need to replace `your_script_name.py` with the actual file name
-    # and provide a video path as a command line argument (or use the file dialog).
-    # E.g.: python video_analysis_app.py my_video.mp4
-    main() # Commented out for a clean execution in this environment
+    main()

@@ -1,25 +1,8 @@
 
 import subprocess
 import os
+import numpy as np
 
-
-
-def convert_to_h264(vid_fname:str, out_fname:str):
-    assert out_fname.endswith(".264"), "Output filename must end with .264"
-
-    # 1. Verify the video is encoded by h264
-    ffprobe_command = f"ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
-    std_msg = subprocess.run(ffprobe_command, shell=True, capture_output=True, text=True)
-    found_codec = std_msg.stdout[:-1]
-
-    if found_codec != "h264":
-        print(f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec {found_codec} is found!")
-        return False
-
-    # 2. Convert the video file to .h264 file.
-    convert_command = f"ffmpeg -i {vid_fname} -an -vcodec copy {out_fname} -y"
-    std_msg = subprocess.run(convert_command, shell=True, capture_output=True, text=True)
-    return True
 
 
 def convert_to_h264(vid_fname:str, out_fname:str):
@@ -56,19 +39,14 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     output_folder = os.path.join(output_root, os.path.basename(vid_fname).split('.')[0], "residuals")
 
-    # Check if the output folder exists
-    # try:
     os.makedirs(output_folder, exist_ok=True)
-    # except Exception as e:
-    #     print(f"Warning: Failed to create the output folder '{output_folder}'. Error: {e}")
-    #     return False, None
 
 
     JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../jm/bin/ldecod.exe")
 
     # 1.2 jm extracts intermediate files
     inspect_command = f"{JM_EXE} -i {vid_fname} -inspect {output_folder}"
-    print("inspect_command = ", inspect_command)
+    print(inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
     if std_msg.stderr != '':
@@ -160,3 +138,92 @@ def decode_one_video(vid_fname:str, output_folder:str):
     print()
 
     return True
+
+def pad_and_crop(img, target_shape):
+    """ Pad or crop the input image to match the target shape.
+    :param img: input image
+    :param target_shape: target shape (height, width)
+    :return: padded or cropped image
+    """
+    h, w = img.shape[:2]
+    target_h, target_w = target_shape
+
+    # Pad in height if needed
+    if target_h - h > 0:
+        img = np.pad(img, ((0, target_h - h), (0, 0)), mode='constant', constant_values=0)
+    elif target_h - h < 0:
+        img = img[:target_h, :]
+    
+    # Pad in width if needed
+    if target_w - w > 0:
+        img = np.pad(img, ((0, 0), (0, target_w - w)), mode='constant', constant_values=0)
+    elif target_w - w < 0:
+        img = img[:, :target_w]
+
+    return img
+
+import subprocess
+import shlex
+import json
+
+# def get_rotation(file_path_with_file_name):
+#     """
+#     Function to get the rotation of the input video file.
+#     Adapted from gist.github.com/oldo/dc7ee7f28851922cca09/revisions using the ffprobe comamand by Lord Neckbeard from
+#     stackoverflow.com/questions/5287603/how-to-extract-orientation-information-from-videos?noredirect=1&lq=1
+
+#     Returns a rotation None, 90, 180 or 270
+#     """
+#     cmd = "ffprobe -loglevel error -select_streams v:0 -show_entries stream_tags=rotate -of default=nw=1:nk=1"
+#     args = shlex.split(cmd)
+#     args.append(file_path_with_file_name)
+#     # run the ffprobe process, decode stdout into utf-8 & convert to JSON
+#     ffprobe_output = subprocess.check_output(args).decode('utf-8')
+#     if len(ffprobe_output) > 0:  # Output of cmdis None if it should be 0
+#         ffprobe_output = json.loads(ffprobe_output)
+#         rotation = ffprobe_output
+
+#     else:
+#         rotation = 0
+
+#     return rotation
+
+
+import ffmpeg
+
+def get_rotation(video_file_path: str):
+    try:
+        # fetch video metadata
+        metadata = ffmpeg.probe(video_file_path)
+    except Exception as e:
+        print(f'failed to read video: {video_file_path}\n'
+              f'{e}\n',
+              end='',
+              flush=True)
+        return None
+    # extract rotate info from metadata
+    video_stream = next((stream for stream in metadata['streams'] if stream['codec_type'] == 'video'), None)
+    rotation = int(video_stream.get('tags', {}).get('rotate', 0))
+    # extract rotation info from side_data_list, popular for Iphones
+    if len(video_stream.get('side_data_list', [])) != 0:
+        side_data = next(iter(video_stream.get('side_data_list')))
+        side_data_rotation = int(side_data.get('rotation', 0))
+        if side_data_rotation != 0:
+            rotation -= side_data_rotation
+    return rotation
+
+
+
+# def get_rotation_code(video_file_path: str):
+#     rotation = get_rotation(video_file_path)
+#     rotation_code = None
+#     if rotation == 180:
+#         rotation_code = cv2.ROTATE_180
+#         print("Rotation code: ROTATE_180")
+#     if rotation == 90:
+#         rotation_code = cv2.ROTATE_90_CLOCKWISE
+#         print("Rotation code: ROTATE_90_CLOCKWISE")
+#     if rotation == 270:
+#         rotation_code = cv2.ROTATE_90_COUNTERCLOCKWISE
+#         print("Rotation code: ROTATE_90_COUNTERCLOCKWISE")
+#     return rotation_code

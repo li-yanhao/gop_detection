@@ -2,16 +2,22 @@ from dataclasses import dataclass
 import glob
 import numpy as np
 import os
+import tifffile
 
 
 @dataclass
 class ResidualInfo:
-    fname: str                  # filename of the residual file
+    fname: str                  # filename of the residual file, in .tiff
     stream_number: int          # decoding order in the video
     picture_order: int          # raw picture order in GOP
     frame_type: str             # in {"I", "P", "B"}
     display_number:int = -1     # to be filled after sorting
 
+
+def read_one_residual(fname:str):
+    assert fname.endswith(".tiff"), "Currently only .tiff format is supported for residual files."
+    img = tifffile.imread(fname)
+    return img.astype(np.float32)
 
 def parse_frame_type(filename:str):
     base_name = os.path.basename(filename)
@@ -67,7 +73,7 @@ def get_sorted_residual_info_list(folder:str, space:str) -> list[ResidualInfo]:
         Color space of the residual files, in {"Y","U","V"}.
     """
 
-    pattern = os.path.join(folder, f"img{space}_s*_p*_[I|P|B].npy")
+    pattern = os.path.join(folder, f"img{space}_s*_p*_[I|P|B].tiff")
     fnames = glob.glob(pattern)
     frame_info_list = []
     
@@ -94,8 +100,6 @@ def get_sorted_residual_info_list(folder:str, space:str) -> list[ResidualInfo]:
 
     # step 2: divide into GOPs, reorder picture orders within each GOP
     picture_orders = [fi.picture_order for fi in frame_info_list]
-
-    print("len(picture_orders):", len(picture_orders))
 
     gop_list = []
     current_gop = [picture_orders[0]]
