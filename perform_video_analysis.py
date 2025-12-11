@@ -1,24 +1,21 @@
-import sys
+import os
+import glob
+import argparse
+import threading
+
 import tkinter as tk
-from tkinter import filedialog
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
 from matplotlib.widgets import PolygonSelector
 
-import os
 from src.residual_info import get_sorted_residual_info_list
 from src.acontrario import AContrarioAnalyser
-import glob
 from src.util import decode_frames, decode_residuals, convert_to_h264, pad_and_crop, get_rotation
 from src.residual_info import read_one_residual
-import argparse
-import threading
 
 
 OUTPUT_ROOT = "tmp"
-
-# SAVE_VISUALIZED_PATH = "visualized_results.png"
 SAVE_VISUALIZED_PATH = None
 
 
@@ -377,6 +374,7 @@ def main():
     
     # Wait for ROI prompt to be handled
     root.mainloop()
+    
 
 
 if __name__ == "__main__":

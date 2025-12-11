@@ -3,7 +3,7 @@ import subprocess
 import os
 import numpy as np
 
-
+OUTPUT_JM = "test_dec.yuv"
 
 def convert_to_h264(vid_fname:str, out_fname:str):
     """ Convert the input video to h264 format.
@@ -45,9 +45,13 @@ def decode_residuals(vid_fname:str, output_root:str):
     JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../jm/bin/ldecod.exe")
 
     # 1.2 jm extracts intermediate files
-    inspect_command = f"{JM_EXE} -i {vid_fname} -inspect {output_folder}"
+    inspect_command = f"{JM_EXE} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
     # print(inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
+
+    # remove the output yuv file whether it exists or not
+    if os.path.exists(OUTPUT_JM):
+        os.remove(OUTPUT_JM)
 
     if std_msg.stderr != '':
         print(std_msg.stderr)
