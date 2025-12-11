@@ -54,9 +54,9 @@ use 3rd-party tool to install ffmpeg:
     libpostproc    56.  6.100 / 56.  6.100
     ```
 
-2. Clone the project.
+2. Clone the project (branch `apate`):
    ```bash
-   git clone --recurse-submodules https://github.com/li-yanhao/gop_detection
+   git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
    ```
 
 3. Compile the H.264 decoder (JM software)
@@ -66,10 +66,10 @@ use 3rd-party tool to install ffmpeg:
    ```
 
 4. Install the python requirements for the _a Contrario_ detector.
-The code was tested in python 3.8.
+The code was tested in python 3.10.19
    ```bash
-   conda create --name myenv python=3.8 # skip this step if use your custom env
-   conda activate myenv
+   conda create --name apate python=3.10.19
+   conda activate apate
    
    pip install -r requirements.txt
    ```
@@ -77,26 +77,36 @@ The code was tested in python 3.8.
 Done! Now all the prerequisites are installed.
 
 ## Usage
-The input video file must be encoded in H.264. It can be a
-`.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`
-or `.h264` file.
+The input video file must be encoded in H.264. It can be a video file in `.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`
+or `.h264`.
 ```bash
-python test_one_video.py -i <input_video_filename> 
+python perform_video_analysis.py <input_video_filename> 
 ```
+
+You can choose a Region of Interest (ROI) at the beginning of the program. If no ROI is selected, the full
+frame will be analyzed.
+
 For example:
 ```bash
-$ python test_one_video.py -i translate_c2.mp4
+$ python perform_video_analysis.py asset/recompressed_office.mp4
+Starting application...
+No ROI selected, analyzing full frame.
 
-Testing translate_c2.mp4 ...
+Decoding frames ...
+
+Decoding residuals ...
+
 Decoding finished successfully.
 
+Frames are saved in:  tmp/recompressed_office/frames
+
+Prediction residuals are saved in:  tmp/recompressed_office/residuals
+
 Detected candidates are:
-periodicity=31 offset=0 NFA=6.495060661229895e-08
-periodicity=62 offset=0 NFA=0.10697923484262506
-periodicity=62 offset=31 NFA=0.015282747834660722
+periodicity=31 offset=0 NFA=0.00018751240128970711
 
 Estimated primary GOP = 31
-NFA = 6.495060661229895e-08
+NFA = 0.00018751240128970711
 ```
 
 ![](plot.gif)
@@ -106,14 +116,17 @@ decoding in a temporary folder `gop_dectection/tmp/`, and
 detects double compression using these data. The intermediate
 data can take up to 1~2 GB depending on the resolution and
 the length of the video. You can safely delete `tmp` after
-running, or the program will automatically clear the folder
-before each execution.
+running.
 
+# Citation
+If you find this code useful in your research, please cite the following paper:
 
-## TODO list
-
-[ ] Refactor the code
-   [ ] Rewrite the peak detection with convolution
-
-[ ] Add laplace filter before detection
-
+```@inproceedings{li2023contrario,
+  title={A contrario detection of h. 264 video double compression},
+  author={Li, Yanhao and Gardella, Marina and Bammey, Quentin and Nikoukhah, Tina and Morel, Jean-Michel and Colom, Miguel and Von Gioi, Rafael Grompone},
+  booktitle={2023 IEEE International Conference on Image Processing (ICIP)},
+  pages={1765--1769},
+  year={2023},
+  organization={IEEE}
+}
+```

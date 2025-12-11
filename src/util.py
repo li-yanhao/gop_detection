@@ -46,7 +46,7 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     # 1.2 jm extracts intermediate files
     inspect_command = f"{JM_EXE} -i {vid_fname} -inspect {output_folder}"
-    print(inspect_command)
+    # print(inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
     if std_msg.stderr != '':
@@ -81,10 +81,10 @@ def decode_frames(vid_fname:str, output_root:str):
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
     ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
-    print(ffmpeg_command)
+    # print(ffmpeg_command)
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
 
-    print(f"Decoding finished successfully.")
+    print(f"Decoding finished successfully.\n")
     print("Frames are saved in: ", output_folder)
     print()
 
@@ -132,7 +132,7 @@ def decode_one_video(vid_fname:str, output_folder:str):
     print(ffmpeg_command)
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
 
-    print(f"Decoding finished successfully.")
+    print(f"Decoding finished successfully.\n")
     print("Prediction residuals are saved in: ", output_residual_folder)
     print("Frames are saved in: ", output_frame_folder)
     print()

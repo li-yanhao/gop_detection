@@ -403,7 +403,6 @@ class AContrarioAnalyser:
             for b in b_candidates:
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
-                    print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
@@ -439,35 +438,3 @@ def compute_residual(img_res, mask=None):
     else:
         return (np.abs(img_res) * mask).sum() / mask.sum()
 
-
-def main():
-    root = "/Users/yli/phd/video_processing/gop_detection/tmp"
-    res_fnames = glob.glob(os.path.join(root, "imgY_d*.npy"))
-
-    analyzer = AContrarioAnalyser(epsilon=1, start_at_0=False, d=3, space="Y")
-
-    from face_segmenter import FaceSegmenter
-    mask_maker = FaceSegmenter()
-
-    bgr_fnames = glob.glob(os.path.join(root, f"img0*.png"))
-    bgr_fnames.sort()
-
-    analyzer.load_from_frames(res_fnames=res_fnames, space='Y', img_fnames=bgr_fnames, mask_maker=mask_maker)
-
-    # analyzer.visualize()
-
-    import time
-    start = time.time()
-    analyzer.preprocess()
-    gop, NFA = analyzer.detect_periodic_signal()
-    end = time.time()
-
-    analyzer.visualize()
-
-    print("Estimated GOP", gop)
-    print("NFA:", NFA)
-    print("Elapsed time:", end - start)
-
-
-if __name__ == '__main__':
-    main()

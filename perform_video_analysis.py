@@ -5,9 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 from matplotlib.widgets import PolygonSelector
-# from matplotlib.path import Path
 
-import subprocess
 import os
 from src.residual_info import get_sorted_residual_info_list
 from src.acontrario import AContrarioAnalyser
@@ -37,7 +35,7 @@ def perform_video_analysis(video_path:str,
     :param max_num: Maximum number of frames to process (-1 for all frames).
     """
 
-    
+    os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
     h264_fname = os.path.join(OUTPUT_ROOT, os.path.basename(video_path).split('.')[0] + ".264") 
 
@@ -52,16 +50,16 @@ def perform_video_analysis(video_path:str,
     frame_folder, residual_folder = None, None
     def decode_frames_task():
         nonlocal ret_decode_frames, frame_folder
-        print("Decoding frames ...")
+        print("Decoding frames ...\n")
         ret_decode_frames, frame_folder = decode_frames(h264_fname, OUTPUT_ROOT)
         
 
     def decode_residuals_task():
         nonlocal ret_decode_residuals, residual_folder
-        print("Decoding residuals ...")
+        print("Decoding residuals ...\n")
         ret_decode_residuals, residual_folder = decode_residuals(h264_fname, OUTPUT_ROOT)
         if not ret_decode_residuals:
-            print("Decoding residuals failed!")
+            print("Decoding residuals failed!\n")
 
     # Create threads for decoding frames and residuals
     frame_thread = threading.Thread(target=decode_frames_task)
@@ -77,11 +75,11 @@ def perform_video_analysis(video_path:str,
 
     # Check if either task failed
     if not ret_decode_frames:
-        print("Decoding frames failed!")
+        print("Decoding frames failed!\n")
         return None, None
 
     if not ret_decode_residuals:
-        print("Decoding residuals failed!")
+        print("Decoding residuals failed!\n")
         return None, None
 
     # 2. A Contrario analysis
@@ -206,20 +204,6 @@ class ResultViewer:
         # 1. Setup Frame for Controls and Statistics
         control_frame = tk.Frame(master)
         control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
-        
-        # Statistics Display
-        # stats_label_text = "\n".join([f"{k}: {v}" for k, v in self.statistics.items()])
-        # stats_label_text = f"ROI Used: {'Yes' if self.roi_used else 'No'}"
-        # self.stats_label = tk.Label(control_frame, text=stats_label_text, justify=tk.LEFT)
-        # self.stats_label.pack(side=tk.LEFT, padx=10)
-
-        # Color Space Radio Buttons
-        # self.color_mode_var = tk.StringVar(value=self.color_space_mode)
-        # modes = ['RGB', 'Y', 'U', 'V']
-        # tk.Label(control_frame, text="Color View:").pack(side=tk.LEFT, padx=(20, 5))
-        # for mode in modes:
-        #     tk.Radiobutton(control_frame, text=mode, variable=self.color_mode_var, value=mode, 
-        #                    command=self.update_frame).pack(side=tk.LEFT)
 
         # 2. Setup Frame for Image and Navigation
         view_frame = tk.Frame(master)
@@ -297,14 +281,9 @@ class ResultViewer:
         # Convert grayscale residual to RGB for consistent display
         img_residual_rgb = cv2.cvtColor(img_residual, cv2.COLOR_GRAY2RGB)
         
-
-
         # Resize both images to half their original size
         img_rgb = cv2.resize(img_rgb, (img_rgb.shape[1] // 2, img_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
         img_residual_rgb = cv2.resize(img_residual_rgb, (img_residual_rgb.shape[1] // 2, img_residual_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
-
-        # convert img_residual_rgb to 3-channel grayscale
-        # img_residual_rgb = cv2.cvtColor(img_residual_rgb, cv2.COLOR_GRAY2RGB)
 
         # crop both images to the same height and width (minimum of the two)
         height = min(img_rgb.shape[0], img_residual_rgb.shape[0])
@@ -339,7 +318,7 @@ def main():
     parser.add_argument("--d", type=int, help="number of neighbors to validate a peak residual (default: 3)", default=3)
     parser.add_argument("--space", type=str, help="color space used for detection (default: Y)", default="Y")
     parser.add_argument("--epsilon", type=float, help="threshold for the Number of False Alarms (NFA), (default: 0.05)", default=0.05)
-    parser.add_argument("--max_num", type=float, help="maximum number of frames to process (default: -1)", default=-1)
+    # parser.add_argument("--max_num", type=float, help="maximum number of frames to process (default: -1)", default=-1)
 
 
     args = parser.parse_args()
@@ -359,12 +338,9 @@ def main():
     # This prevents the program from exiting before the ROI prompt is handled
     def start_analysis_and_viewer():
         # --- Step 3: Run Core Analysis ---
-        frame_fname_list, residual_fname_list = perform_video_analysis(args.video_path, d=args.d, space=args.space, epsilon=args.epsilon, max_num=args.max_num, roi_mask=roi_mask)
+        frame_fname_list, residual_fname_list = perform_video_analysis(args.video_path, d=args.d, space=args.space, epsilon=args.epsilon, roi_mask=roi_mask)
         
-        print("Check the rotation of the video...")
         rotation = get_rotation(args.video_path)
-        print(f"Rotation: {rotation} degrees")
-        print()
         
         # --- Step 4: Launch Visualization GUI ---
         viewer_root = tk.Tk()
@@ -406,3 +382,9 @@ def main():
 if __name__ == "__main__":
     print("Starting application...")
     main()
+
+
+# Usage:
+#   python perform_video_analysis.py path/to/video.mp4
+# or specify parameters:
+#   python perform_video_analysis.py path/to/video.mp4 --d 5 --space U --epsilon 0.1
