@@ -109,8 +109,8 @@ Estimated primary GOP = 31
 NFA = 0.00018751240128970711
 ```
 
-
-![alt text](office_recompressed_full.png)
+The histogram of the residuals in P-frames shows periodic peaks highlighted in <span style="color:cyan"> cyan</span>:
+![alt text](asset/office_recompressed_full.png)
 
 
 
@@ -124,9 +124,9 @@ Estimated primary GOP = 30
 NFA = 7.679586275143973e-13
 ```
 The histogram of the residuals in P-frames shows clear periodic peaks (highlighted in <span style="color:cyan"> cyan</span>):
-![alt text](003_fake_background.png)
+![alt text](asset/003_fake_background.png)
 You can also visualize the evolution of prediction residuals of all frames over time:
-![alt text](003_fake_background_viz.png)
+![alt text](asset/003_fake_background_viz.png)
 
 Running the detection on the face area does not find any evidence of double compression:
 ```
@@ -134,9 +134,9 @@ Estimated primary GOP = -1
 NFA = inf
 ```
 The histogram of the residuals in P-frames does not show any periodic pattern:
-![alt text](003_fake_face.png)
+![alt text](asset/003_fake_face.png)
 You can also visualize the evolution of prediction residuals:
-![alt text](003_fake_face_viz.png)
+![alt text](asset/003_fake_face_viz.png)
 
 # Temporary files
 
