@@ -107,12 +107,12 @@ For instance, in a faceswap video `asset/fake_003.mp4`, the background area orig
 
 Command:
 ```bash
-python perform_video_analysis.py asset/fake_003.mp4
+python perform_video_analysis_gui.py asset/fake_003.mp4
 ```
 
 Running the detection on the face area does NOT find any evidence of double compression:
-
 ![alt text](asset/003_fake_face_viz.png)
+(you can press Left Arrow / Right Arrow to navigate through frames in the GUI)
 
 The histogram of the residuals in P-frames does NOT show any periodic pattern:
 ![alt text](asset/003_fake_face.png)
