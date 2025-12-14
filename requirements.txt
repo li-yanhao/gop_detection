@@ -13,3 +13,4 @@ scipy==1.15.3
 setuptools==80.9.0
 tifffile==2025.5.10
 imagecodecs==2025.3.30
+kaleido==1.2.0

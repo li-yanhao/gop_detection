@@ -1,7 +1,9 @@
-
-import subprocess
 import os
+import subprocess
+
 import numpy as np
+import ffmpeg
+import cv2
 
 OUTPUT_JM = "test_dec.yuv"
 
@@ -58,7 +60,7 @@ def decode_residuals(vid_fname:str, output_root:str):
         print(f"Decoding {vid_fname} failed! (from JM software)")
         return False, None
 
-    print("Prediction residuals are saved in: ", output_folder)
+    print("Prediction residuals are saved in: ", output_folder, "   (can be deleted after analysis)")
     print()
 
     return True, output_folder
@@ -75,12 +77,7 @@ def decode_frames(vid_fname:str, output_root:str):
 
     output_folder = os.path.join(output_root, os.path.basename(vid_fname).split('.')[0], "frames")
 
-    # Check if the output folder exists
-    # try:
     os.makedirs(output_folder, exist_ok=True)
-    # except Exception as e:
-        # print(f"Warning: Failed to create the output folder '{output_folder}'. Error: {e}")
-        # return False, None
     
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
@@ -89,59 +86,11 @@ def decode_frames(vid_fname:str, output_root:str):
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
 
     print(f"Decoding finished successfully.\n")
-    print("Frames are saved in: ", output_folder)
+    print("Frames are saved in: ", output_folder, "   (can be deleted after analysis)")
     print()
 
     return True, output_folder
 
-
-def decode_one_video(vid_fname:str, output_folder:str):
-    assert vid_fname.endswith("264")
-
-    # Check if the output folder exists
-    if os.path.exists(output_folder):
-        print(f"Warning: The output folder '{output_folder}' already exists!")
-        return False
-    
-    try:
-        os.makedirs(output_folder)
-    except Exception as e:
-        print(f"Warning: Failed to create the output folder '{output_folder}'. Error: {e}")
-        return False
-
-    output_residual_folder = os.path.join(output_folder, "residuals")
-    output_frame_folder = os.path.join(output_folder, "frames")
-
-    try:
-        os.makedirs(output_residual_folder)
-        os.makedirs(output_frame_folder)
-    except Exception as e:
-        print(f"Warning: Failed to create sub-folders in '{output_folder}'. Error: {e}")
-        return False
-
-    JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../jm/bin/ldecod.exe")
-
-    # 1.2 jm extracts intermediate files
-    inspect_command = f"{JM_EXE} -i {vid_fname} -inspect {output_residual_folder}"
-    print("inspect_command = ", inspect_command)
-    std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
-
-    if std_msg.stderr != '':
-        print(std_msg.stderr)
-        raise Exception(f"Decoding {vid_fname} failed! (from JM software)")
-
-    # 1.3 ffmpeg decodes images
-    img_out_pattern = os.path.join(output_frame_folder, "img%04d.png")
-    ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
-    print(ffmpeg_command)
-    std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
-
-    print(f"Decoding finished successfully.\n")
-    print("Prediction residuals are saved in: ", output_residual_folder)
-    print("Frames are saved in: ", output_frame_folder)
-    print()
-
-    return True
 
 def pad_and_crop(img, target_shape):
     """ Pad or crop the input image to match the target shape.
@@ -166,35 +115,6 @@ def pad_and_crop(img, target_shape):
 
     return img
 
-import subprocess
-import shlex
-import json
-
-# def get_rotation(file_path_with_file_name):
-#     """
-#     Function to get the rotation of the input video file.
-#     Adapted from gist.github.com/oldo/dc7ee7f28851922cca09/revisions using the ffprobe comamand by Lord Neckbeard from
-#     stackoverflow.com/questions/5287603/how-to-extract-orientation-information-from-videos?noredirect=1&lq=1
-
-#     Returns a rotation None, 90, 180 or 270
-#     """
-#     cmd = "ffprobe -loglevel error -select_streams v:0 -show_entries stream_tags=rotate -of default=nw=1:nk=1"
-#     args = shlex.split(cmd)
-#     args.append(file_path_with_file_name)
-#     # run the ffprobe process, decode stdout into utf-8 & convert to JSON
-#     ffprobe_output = subprocess.check_output(args).decode('utf-8')
-#     if len(ffprobe_output) > 0:  # Output of cmdis None if it should be 0
-#         ffprobe_output = json.loads(ffprobe_output)
-#         rotation = ffprobe_output
-
-#     else:
-#         rotation = 0
-
-#     return rotation
-
-
-import ffmpeg
-
 def get_rotation(video_file_path: str):
     try:
         # fetch video metadata
@@ -217,17 +137,11 @@ def get_rotation(video_file_path: str):
     return rotation
 
 
-
-# def get_rotation_code(video_file_path: str):
-#     rotation = get_rotation(video_file_path)
-#     rotation_code = None
-#     if rotation == 180:
-#         rotation_code = cv2.ROTATE_180
-#         print("Rotation code: ROTATE_180")
-#     if rotation == 90:
-#         rotation_code = cv2.ROTATE_90_CLOCKWISE
-#         print("Rotation code: ROTATE_90_CLOCKWISE")
-#     if rotation == 270:
-#         rotation_code = cv2.ROTATE_90_COUNTERCLOCKWISE
-#         print("Rotation code: ROTATE_90_COUNTERCLOCKWISE")
-#     return rotation_code
+def correct_rotation(frame, rotation):
+    if rotation == 90:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation == 180:
+        frame = cv2.rotate(frame, cv2.ROTATE_180)
+    elif rotation == 270:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return frame

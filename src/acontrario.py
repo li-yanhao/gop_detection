@@ -245,7 +245,7 @@ class AContrarioAnalyser:
 
         plt.show()
 
-    def visualize(self, save_fname=None):
+    def visualize(self, save_fname=None, open_browser=True):
         ''' Visualize the residuals and detection results using plotly.
         :param save_fname: if not None, save the visualization to the given filename. The format is determined by the
             file extension, which can be ".png", ".jpg", or ".html".
@@ -341,14 +341,21 @@ class AContrarioAnalyser:
             yaxis={'title': 'prediction residual'}
         )
 
-        fig.show()
+        if open_browser:
+            fig.show()
 
         if save_fname is not None:
-            if save_fname.endswith(".png") or save_fname.endswith("jpg"):
-                fig.write_image(save_fname)
-            if save_fname.endswith("html"):
-                fig.write_html(save_fname)
-            print("Saved visualized results to:", save_fname)
+            if save_fname.endswith(".png") or save_fname.endswith(".jpg"):
+                fig.write_image(save_fname, scale=2)
+            # if save_fname.endswith("html"):
+            #     fig.write_html(save_fname)
+            if save_fname.endswith(".pdf"):
+                fig.write_image(save_fname, scale=2)
+            # replace extension with .html, but the extension can be anything
+            save_fname_html = os.path.splitext(save_fname)[0] + ".html"
+            fig.write_html(save_fname_html)
+            print("Saved visualized results to: {} and {}".format(save_fname, save_fname_html))
+            print()
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
@@ -382,16 +389,14 @@ class AContrarioAnalyser:
     def detect_periodic_signal(self):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
 
-        :return:
-            [0] the detected periodicity
-            [1] the NFA of the detection
+        :return: a list of detected candidates (p, b, NFA)
         """
 
         assert self.d >= 1, "the range of neighborhood must be larger than 1"
 
         self.residuals = self.residuals[:self.max_num]
         self.frame_types = self.frame_types[:self.max_num]
-        detected_results = []
+        detected_results = []  # list of tuples (p, b, NFA, tested_indices)
         for p in range(2 * self.d, len(self.residuals) // 2):
             if self.start_at_0:
                 b_candidates = [0]
@@ -406,23 +411,21 @@ class AContrarioAnalyser:
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
-            print("No periodic residual sequence is detected.")
-            return -1, np.inf
+            return []
 
-        print("Detected candidates are:")
         best_NFA = self.epsilon
         best_i = 0
         for i in range(len(detected_results)):
             p, b, NFA, _ = detected_results[i]
-            print(f"periodicity={p} offset={b} NFA={NFA}")
             if best_NFA > NFA:
                 best_NFA = NFA
                 best_i = i
         print()
         self.detected_result = detected_results[best_i]
 
-        # return the periodicity
-        return self.detected_result[0], best_NFA
+        detections_to_return = [(p,b,NFA) for p,b,NFA,_ in detected_results]
+
+        return detections_to_return
 
 
 def compute_residual(img_res, mask=None):
