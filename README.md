@@ -23,26 +23,27 @@ of False Alarms (NFA) is significantly small.
 
 1. Clone the project (branch `apate`):
 
-    step 1: Install Git LFS if it is not done yet ([docs](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)), otherwise skip this step.
-    ```bash
-      # Install Git LFS on Ubuntu / Debian
-      sudo apt install git-lfs
+    step 1: Install Git LFS ([docs](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)) if it is not done yet, otherwise skip this step.
 
-      # or on macOS
+    Ubuntu / Debian:
+    ```bash
+      sudo apt install git-lfs
+    ```
+
+    MacOS:
+    ```bash
       brew install git-lfs
     ```
 
-    
+    Then initialize Git LFS:
     ```bash
-      # initialize git lfs
       git lfs install
     ```
 
-    step 2: Clone the repository
+    step 2: Clone the repository (branch `apate`):
     ```bash
     git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
     ```
-
 
 2. Install [ffmpeg](https://ffmpeg.org/). You could
 use 3rd-party tool to install ffmpeg:
