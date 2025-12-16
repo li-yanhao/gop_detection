@@ -25,7 +25,7 @@ def perform_video_analysis(video_path:str,
     """ Perform video analysis on the given video file.
     :param video_path: Path to the input video file.
     :param d: Parameter d for A Contrario analysis.
-    :param space: Color space to use ('Y', 'U', 'V', 'RGB').
+    :param space: Color space to use ('Y', 'U', 'V').
     :param epsilon: Epsilon parameter for A Contrario analysis.
     :param roi_mask: Optional mask (NumPy array) defining the region of interest. Suppose the mask is unrotated to be aligned with the video frames.
     :param max_num: Maximum number of frames to process (-1 for all frames).
