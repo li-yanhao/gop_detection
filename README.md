@@ -94,7 +94,7 @@ The code was tested in python 3.10.19
    pip install -r requirements.txt
    ```
 
-Done! Now all the prerequisites are installed.
+🎉 Done! Now all the prerequisites are installed.
 
 ## 🖱️ Usage with interactive GUI
 
