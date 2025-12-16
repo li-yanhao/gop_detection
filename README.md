@@ -96,7 +96,20 @@ The code was tested in python 3.10.19
 
 🎉 Done! Now all the prerequisites are installed.
 
+5. (Optional for GUI users) Install the GUI plugin `tkinter` on your system if not installed yet:
+
+   Ubuntu / Debian:
+   ```bash
+   sudo apt install python3-tk
+   ```
+
+   MacOS:
+   ```bash
+   brew install python-tk
+   ```
+
 ## 🖱️ Usage with interactive GUI
+
 
 The input video file must be encoded in H.264. It can be a video file in extension `.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`.
 
