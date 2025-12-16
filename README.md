@@ -1,9 +1,10 @@
 # A Contrario Detection of H.264 Video Double Compression
 
 
+
 This is a project detecting whether a video has been recompressed,
 and to estimate the fixed size of the primary Group of Pictures (GOP) of 
-a recompressd video. 
+a recompressd video. ([link](https://github.com/li-yanhao/gop_detection/tree/apate))
 
 The project consists of two parts:
 * An inspector for H.264 videos that extracts the
