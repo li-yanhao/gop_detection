@@ -19,7 +19,31 @@ of False Alarms (NFA) is significantly small.
 
 ## Before using
 
-1. Install [ffmpeg](https://ffmpeg.org/). You could
+
+1. Clone the project (branch `apate`):
+
+    step 1: Install Git LFS if it is not done yet ([docs](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)), otherwise skip this step.
+    ```bash
+      # Install Git LFS on Ubuntu / Debian
+      sudo apt install git-lfs
+
+      # or on macOS
+      brew install git-lfs
+    ```
+
+    
+    ```bash
+      # initialize git lfs
+      git lfs install
+    ```
+
+    step 2: Clone the repository
+    ```bash
+    git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
+    ```
+
+
+2. Install [ffmpeg](https://ffmpeg.org/). You could
 use 3rd-party tool to install ffmpeg:
 
     Ubuntu / Debian:
@@ -53,10 +77,6 @@ use 3rd-party tool to install ffmpeg:
     libpostproc    56.  6.100 / 56.  6.100
     ```
 
-2. Clone the project (branch `apate`):
-   ```bash
-   git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
-   ```
 
 3. Compile the H.264 decoder (JM software)
    ```bash
