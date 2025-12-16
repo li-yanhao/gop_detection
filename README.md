@@ -44,8 +44,7 @@ of False Alarms (NFA) is significantly small.
     git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
     ```
 
-2. Install [ffmpeg](https://ffmpeg.org/). You could
-use 3rd-party tool to install ffmpeg:
+2. Install [ffmpeg](https://ffmpeg.org/). You could use a 3rd-party tool to install ffmpeg:
 
     Ubuntu / Debian:
     ```bash
@@ -80,10 +79,30 @@ use 3rd-party tool to install ffmpeg:
 
 
 3. Compile the H.264 decoder (JM software)
-   ```bash
-   cd jm
-   make -j
-   ```
+
+    step 1: Prepare the library dependencies for `libpng`, `libtiff` and `libjpeg`:
+
+    Ubuntu / Debian:
+    ```
+      sudo apt update
+      sudo apt install -y \
+        build-essential \
+        libpng-dev \
+        libtiff-dev \
+        libjpeg-dev
+
+    ```
+    MacOS:
+    ```bash
+      brew install libpng libtiff jpeg
+    ```
+
+    step 2: Compile the decoder
+
+    ```bash
+    cd jm
+    make -j ldecod
+    ```
 
 4. Install the python requirements for the _a Contrario_ detector.
 The code was tested in python 3.10.19
@@ -92,6 +111,7 @@ The code was tested in python 3.10.19
    conda activate apate
    
    pip install -r requirements.txt
+
    ```
 
 🎉 Done! Now all the prerequisites are installed.
