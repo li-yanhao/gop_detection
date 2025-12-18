@@ -1,53 +1,93 @@
-import numpy as np
 import os
 import glob
-import matplotlib.pyplot as plt
-import mplcursors
-from scipy import stats
-import matplotlib.patches as mpatches
-import pandas as pd
-
-import plotly.graph_objects as go
 import pickle
 
+import numpy as np
+import pandas as pd
+from scipy import stats
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 
-class StreamAnalyzer:
+import plotly.graph_objects as go
+
+import mplcursors
+from .util import pad_and_crop
+from .residual_info import read_one_residual
+
+
+class AContrarioAnalyser:
     def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
-        self.residuals_Y = None
-        self.residuals_U = None
-        self.residuals_V = None
+        """ Main class for a-contrario analysis of detecting double compression from prediction residuals.
 
-        self.frame_types = None
-        self.stream_nums = None
+        Parameters
+        ----------
+        epsilon : int, optional
+            threshold for the Number of False Alarms (NFA), by default 1
+        d : int, optional
+            number of neighbors to validate a peak residual, by default 3
+        start_at_0 : bool, optional
+            whether the offset b is fixed to 0, by default False
+        space : str, optional
+            color space used for detection, by default "Y"
+        max_num : int, optional
+            maximum number of frames to process, by default -1
+        """
+
+        # frame information
+        self.frame_types = None  # frame types, size (num_frames,), in {"I", "P", "B"}
+        self.stream_nums = None  
         self.display_nums = None
+
+        # preprocessed residuals
+        self.residuals_Y = None  # mean residuals of Y channel, size (num_frames,)
+        self.residuals_U = None  # mean residuals of U channel, size (num_frames,)
+        self.residuals_V = None  # mean residuals of V channel, size (num_frames,)
+
+        # detection results
         self.detected_result = None
         self.valid_sequence_mask = None
 
-        self.epsilon = epsilon
-        self.d = d
-        self.start_at_0 = start_at_0
-        self.space = space
 
-        self.max_num = max_num if max_num > 0 else 100000
+        # parameters of the a contrario detection
+        self.epsilon = epsilon          # the NFA threshold
+        self.d = d                      # the range of neighborhood to valid a peak residual
+        self.start_at_0 = start_at_0    # whether the offset b is fixed to 0
+        self.space = space              # color space used for detection
 
-    def load_from_frames(self, fnames, space="Y"):
-        fnames = np.array(fnames)
+        # self.max_num = max_num if max_num > 0 else 
+        self.max_num = max_num if max_num > 0 else np.iinfo(np.int32).max
 
-        self.frame_types = np.array([fname.split(".")[-2][-1] for fname in fnames])
-        self.stream_nums = np.array([int(fname.split("_")[-3][1:]) for fname in fnames])
-        self.display_nums = np.array([int(fname.split("_")[-2][1:]) for fname in fnames])
+    def load_frame_info(self, frame_info_list, space, roi_mask=None):
+        """
+
+        :param frame_info_list: list of FrameInfo, sorted according to display order
+        :param space: color space, in {"Y", "U", "V", "YUV"}
+        :param img_fnames: decoded frames, for mask extraction use, sorted according to frame numbers
+        :param roi_mask: a binary mask indicating the region of interest for residual computation, by default None
+        """
+
+        self.frame_types = np.array([fi.frame_type for fi in frame_info_list])
+        self.stream_nums = np.array([fi.stream_number for fi in frame_info_list])
+        self.display_nums = np.array([fi.display_number for fi in frame_info_list])
+
         residuals = []
-        for fname in fnames:
-            img_res = np.load(fname)
+        for i in range(len(frame_info_list)):
+            res_fname = frame_info_list[i].fname
+            img_res = read_one_residual(res_fname)
             img_res = np.squeeze(img_res)
-            residual = compute_residual(img_res)
+
+            if roi_mask is None:
+                residual = compute_residual(img_res)
+            else:
+                roi_mask = pad_and_crop(roi_mask, img_res.shape[:2])
+                residual = compute_residual(img_res, roi_mask)
+
             residuals.append(residual)
         residuals = np.array(residuals)
 
         sorted_ind = np.argsort(self.display_nums)
 
         self.frame_types = self.frame_types[sorted_ind]
-        self.stream_nums = self.stream_nums[sorted_ind]
         self.display_nums = self.display_nums[sorted_ind]
         if space == "Y":
             self.residuals_Y = residuals[sorted_ind]
@@ -66,7 +106,6 @@ class StreamAnalyzer:
         elif self.space == "YUV":
             self.residuals = self.residuals_Y + self.residuals_U + self.residuals_V
             
-
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
@@ -78,25 +117,27 @@ class StreamAnalyzer:
             # if self.frame_types[pivot - 1] == 'I':
             #     continue
 
-            delta = -1
-            count = 0
+            # compare the pivot with residuals on the left side
+            delta = -1  # shift to left neighbors
+            count = 0  # count of smaller neighbors
             while count < self.d and pivot + delta >= 0:
                 if self.frame_types[pivot + delta] == 'P':
-                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                    if self.residuals[pivot] <= self.residuals[pivot + delta]:
                         break
                     else:
                         count += 1
                 delta -= 1
 
+            # if not enough neighbors on the left side, skip to the next potential peak P frame
             if count < self.d:
                 continue
 
             # compare the pivot with residuals on the right side
-            delta = 1
+            delta = 1  # shift to left neighbors
             count = 0
             while count < self.d and pivot + delta < len(self.residuals):
                 if self.frame_types[pivot + delta] == 'P':
-                    if self.residuals[pivot] < self.residuals[pivot + delta]:
+                    if self.residuals[pivot] <= self.residuals[pivot + delta]:
                         break
                     else:
                         count += 1
@@ -204,7 +245,12 @@ class StreamAnalyzer:
 
         plt.show()
 
-    def visualize(self, save_fname=None):
+    def visualize(self, save_fname=None, open_browser=True):
+        ''' Visualize the residuals and detection results using plotly.
+        :param save_fname: if not None, save the visualization to the given filename. The format is determined by the
+            file extension, which can be ".png", ".jpg", or ".html".
+        '''
+
         color_map = {
             "I": "red",
             "P": "blue",
@@ -213,7 +259,7 @@ class StreamAnalyzer:
 
         df = pd.DataFrame({
             "frame_type": self.frame_types,
-            "frame_number": self.display_nums,
+            "frame_number": self.display_nums + 1, # make frame number start from 1
             "residuals": self.residuals,
             "color": [color_map[type] for type in self.frame_types]
         })
@@ -263,7 +309,7 @@ class StreamAnalyzer:
             x=abnormal_df["frame_number"],
             y=abnormal_df["residuals"],
             name='P frame',
-            marker_color="blue",
+            marker_color="cyan", # TODO: back to cyan
             showlegend=False,
             customdata=abnormal_df["frame_type"],
             hovertemplate=hover_template
@@ -290,27 +336,26 @@ class StreamAnalyzer:
         ])
 
         fig.update_layout(
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    buttons=buttons,
-                    direction="left",
-                    pad={"r": 10, "t": 10},
-                    showactive=True,
-                    x=0.11,
-                    xanchor="left",
-                    y=1.1,
-                    yanchor="top"
-                ),
-            ]
-        )
-
-        fig.update_layout(
+            font_size=14,
             xaxis={'title': 'frame number'},
             yaxis={'title': 'prediction residual'}
         )
 
-        fig.show()
+        if open_browser:
+            fig.show()
+
+        if save_fname is not None:
+            if save_fname.endswith(".png") or save_fname.endswith(".jpg"):
+                fig.write_image(save_fname, scale=2)
+            # if save_fname.endswith("html"):
+            #     fig.write_html(save_fname)
+            if save_fname.endswith(".pdf"):
+                fig.write_image(save_fname, scale=2)
+            # replace extension with .html, but the extension can be anything
+            save_fname_html = os.path.splitext(save_fname)[0] + ".html"
+            fig.write_html(save_fname_html)
+            print("Saved visualized results to: {} and {}".format(save_fname, save_fname_html))
+            print()
 
     def compute_NFA(self, pi, bij, d, N_test):
         """ Compute the NFA of a candidate (pi, bij)
@@ -344,17 +389,14 @@ class StreamAnalyzer:
     def detect_periodic_signal(self):
         """ Compute the NFA of a periodic sequence starting at qi with spacing of pi.
 
-        :return:
-            [0] the detected periodicity
-            [1] the NFA of the detection
+        :return: a list of detected candidates (p, b, NFA)
         """
 
         assert self.d >= 1, "the range of neighborhood must be larger than 1"
 
         self.residuals = self.residuals[:self.max_num]
         self.frame_types = self.frame_types[:self.max_num]
-        
-        detected_results = []
+        detected_results = []  # list of tuples (p, b, NFA, tested_indices)
         for p in range(2 * self.d, len(self.residuals) // 2):
             if self.start_at_0:
                 b_candidates = [0]
@@ -366,63 +408,36 @@ class StreamAnalyzer:
             for b in b_candidates:
                 NFA, tested_indices = self.compute_NFA(p, b, self.d, N_test)
                 if NFA < self.epsilon:
-                    # print(f"periodicity={p} offset={b} NFA={NFA}")
                     detected_results.append((p, b, NFA, tested_indices))
 
         if len(detected_results) == 0:
-            print("No periodic residual sequence is detected.")
-            return -1, np.inf
+            return []
 
-        print("Detected candidates are:")
         best_NFA = self.epsilon
         best_i = 0
         for i in range(len(detected_results)):
             p, b, NFA, _ = detected_results[i]
-            print(f"periodicity={p} offset={b} NFA={NFA}")
             if best_NFA > NFA:
                 best_NFA = NFA
                 best_i = i
         print()
         self.detected_result = detected_results[best_i]
 
-        # return the periodicity
-        return self.detected_result[0], best_NFA
+        detections_to_return = [(p,b,NFA) for p,b,NFA,_ in detected_results]
+
+        return detections_to_return
 
 
-def compute_residual(img_res):
+def compute_residual(img_res, mask=None):
     """
     :param img_res: of size (H, W)
+    :param mask: of size (H, W)
     :return: mean residual
     """
-    img_res = np.abs(img_res)
-    return np.mean(img_res)
 
+    # no filter
+    if mask is None:
+        return np.mean(np.abs(img_res))
+    else:
+        return (np.abs(img_res) * mask).sum() / mask.sum()
 
-def main():
-    root = "/Users/yli/phd/video_processing/gop_detection/jm_16.1/bin"
-    fnames = glob.glob(os.path.join(root, "imgY_s*.npy"))
-
-    d = 3
-    analyzer = StreamAnalyzer(epsilon=10, start_at_0=False)
-    analyzer.load_from_frames(fnames, space='Y')
-
-    vis_fname = None
-
-    analyzer.visualize(vis_fname)
-
-    import time
-    start = time.time()
-    analyzer.preprocess()
-    gop, NFA = analyzer.detect_periodic_signal()
-    end = time.time()
-
-    # vis_fname = "detection_Y_c2.eps"
-    analyzer.visualize(vis_fname)
-
-    print("Estimated GOP", gop)
-    print("NFA:", NFA)
-
-    print("Elapsed time:", end - start)
-
-if __name__ == '__main__':
-    main()

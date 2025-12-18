@@ -1,5 +1,4 @@
-# A Contrario Detection of H.264 Video Double Compression
-
+# 🎥 A Contrario Detection of H.264 Video Double Compression
 
 
 This is the official code of the paper: "**A contrario detection of h. 264 video double compression**", 2023 IEEE International Conference on Image Processing (ICIP), by Yanhao Li, Marina Gardella, Quentin Bammey, Tina Nikoukhah, Jean-Michel Morel, Miguel Colom and Rafael Grompone von Gioi.
@@ -8,10 +7,11 @@ This is the official code of the paper: "**A contrario detection of h. 264 video
 
 🚀 [DEMO](https://ipolcore.ipol.im/demo/clientApp/demo.html?id=77777000399)
 
-In this work we present a novel method for identifying double compression in H.264 codec videos. Our technique exploits the periodicity of frame residuals caused by fixed Group of Pictures (**GOP**) in the initial compression, and employs an _a contrario_ framework to minimize and control false detections. The proposed method can reliably detect double compression in videos. It does not require threshold tuning, thus enabling automatic detection.
+🌐 [Github](https://github.com/li-yanhao/gop_detection/)
 
 
-The project consists of two parts:
+The repo consists of two parts:
+
 * An inspector for H.264 videos that extracts the
 intermediate data during the decompression. At present it can
 extract the prediction residuals, macroblock types, frame types,
@@ -19,14 +19,37 @@ display order and picture coding order. The extractor is based on the
 [JM software](https://iphome.hhi.de/suehring/tml/) 
 and its [extension](https://vqeg.github.io/software-tools/encoding/modified-avc-codec/).
 * An _a Contrario_ detector that detects potential periodic sequence
-of residual peaks in P-frames and validate the sequence if the Number
-of False Alarms (NFA) is significantly small.
+of residual peaks in P-frames caused by fixed-size Group of Pictures (**GOP**) in the primary compression and validate the sequence if the Number of False Alarms (NFA) is significantly small.
 
 
-## Before using
+## 🛠️ Before using
 
-1. Install [ffmpeg](https://ffmpeg.org/). You could
-use 3rd-party tool to install ffmpeg:
+
+1. Clone the project:
+
+    step 1: Install Git LFS ([docs](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)) if it is not done yet, otherwise skip this step.
+
+    Ubuntu / Debian:
+    ```bash
+      sudo apt install git-lfs
+    ```
+
+    MacOS:
+    ```bash
+      brew install git-lfs
+    ```
+
+    Then initialize Git LFS:
+    ```bash
+      git lfs install
+    ```
+
+    step 2: Clone the repository (branch `main`):
+    ```bash
+    git clone -b main --recurse-submodules https://github.com/li-yanhao/gop_detection.git
+    ```
+
+2. Install [ffmpeg](https://ffmpeg.org/). You could use a 3rd-party tool to install ffmpeg:
 
     Ubuntu / Debian:
     ```bash
@@ -42,7 +65,7 @@ use 3rd-party tool to install ffmpeg:
    
     Or install from the official [website](https://ffmpeg.org/download.html).
     
-    Then make sure ffmpeg can be run from bash, e.g.:
+   Make sure ffmpeg can be run from bash, e.g.:
     ```bash
     $ ffmpeg -version
    
@@ -59,68 +82,201 @@ use 3rd-party tool to install ffmpeg:
     libpostproc    56.  6.100 / 56.  6.100
     ```
 
-2. Clone the project.
-   ```bash
-   git clone --recurse-submodules https://github.com/li-yanhao/gop_detection
-   ```
 
 3. Compile the H.264 decoder (JM software)
-   ```bash
-   cd gop_detection/jm
-   make -j
-   ```
+
+    step 1: Prepare the library dependencies for `libpng`, `libtiff` and `libjpeg`:
+
+    Ubuntu / Debian:
+    ```
+      sudo apt update
+      sudo apt install -y \
+        build-essential \
+        libpng-dev \
+        libtiff-dev \
+        libjpeg-dev
+
+    ```
+    MacOS:
+    ```bash
+      brew install libpng libtiff jpeg
+    ```
+
+    step 2: Compile the decoder
+
+    ```bash
+    cd jm
+    make -j ldecod
+    ```
 
 4. Install the python requirements for the _a Contrario_ detector.
-The code was tested in python 3.8.
+The code was tested in python 3.10.19
    ```bash
-   conda create --name myenv python=3.8 # skip this step if use your custom env
-   conda activate myenv
+   conda create --name py310 python=3.10.19
+   conda activate py310
    
    pip install -r requirements.txt
+
    ```
 
-Done! Now all the prerequisites are installed.
+🎉 Done! Now all the prerequisites are installed.
 
-## Detect double compression in H.264 video
-The input video file must be encoded in H.264. It can be in any container in the format of
-`.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`
-or `.h264`.
+5. (Optional for GUI users) Install the GUI plugin `tkinter` on your system if not installed yet:
+
+   Ubuntu / Debian:
+   ```bash
+   sudo apt install python3-tk
+   ```
+
+   MacOS:
+   ```bash
+   brew install python-tk
+   ```
+
+## 🖱️ Usage with interactive GUI
+
+
+The input video file must be encoded in H.264. It can be a video file in extension `.mp4`, `.avi`, `.mkv`, `.mov`, `.qt`, `.264`.
+
+You can run the program with a GUI to select the ROI interactively in order to perform the detection on a specific area of the video.
 ```bash
-python test_one_video.py -i <input_video_filename> 
+python perform_video_analysis_gui.py [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--out_folder OUT_FOLDER] video_path
 ```
-For example:
+where:
+* `d`: number of neighbors to validate a peak residual (default: 3)
+* `space`: color space used for detection, accepted values are `{'Y', 'U', 'V'}`, (default: `'Y'`)
+* `epsilon`: threshold for the Number of False Alarms (NFA), (default: 0.05)
+* `out_folder`: output folder for results (default: `results/`)
+
+The execution arguments and results will be saved in `<out_folder>/<date_of_execution>/`.
+
+```
+results/<date_of_execution>/
+├── args.txt         # the input arguments used for the detection
+├── detections.txt   # the detected candidates with periodicity, empty if no candidate is found
+├── histogram.png    # the histogram of the residuals of all the frames
+├── histogram.html   # the histogram of the residuals of all the frames, needs a web browser to open
+└── mask.png         # a ROI mask selected interactively
+```
+
+
+### 🧪 Example: detecting double compression in a faceswap video with ROI mask
+
+For instance, in a faceswap video `asset/fake_003.mp4`, the background area originated from a primary authentic video may have been compressed twice, while the face area modified or generated by software may have been compressed only once during the final compression. 
+
+Command:
 ```bash
-$ python test_one_video.py -i translate_c2.mp4
-
-Testing translate_c2.mp4 ...
-Decoding finished successfully.
-
-Detected candidates are:
-periodicity=31 offset=0 NFA=6.495060661229895e-08
-periodicity=62 offset=0 NFA=0.10697923484262506
-periodicity=62 offset=31 NFA=0.015282747834660722
-
-Estimated primary GOP = 31
-NFA = 6.495060661229895e-08
+python perform_video_analysis_gui.py asset/fake_003.mp4
 ```
 
-![](plot.gif)
+Running the detection on the face area does NOT find any evidence of double compression:
+![alt text](asset/003_fake_face_viz.png)
+(you can press Left Arrow / Right Arrow to navigate through frames in the GUI)
 
-Basically this will first extract the intermediate data of
-decoding in a temporary folder `gop_dectection/tmp/`, and
+The histogram of the residuals in P-frames does NOT show any periodic pattern:
+![alt text](asset/003_fake_face.png)
+
+
+
+
+Running the detection on the background area results in positive detection of double compression:
+![alt text](asset/003_fake_background_viz.png)
+``` 
+Detected candidates (by A Contrario analysis):
+  Periodicity = 15, Offset = 0, NFA = 0.002004693634577336
+  Periodicity = 15, Offset = 14, NFA = 0.0006576445075819903
+  Periodicity = 30, Offset = 0, NFA = 7.679586275143973e-13
+  Periodicity = 30, Offset = 29, NFA = 3.843936739891997e-12
+  Periodicity = 60, Offset = 0, NFA = 3.24848871735527e-06
+  Periodicity = 60, Offset = 29, NFA = 0.010216038405910469
+  Periodicity = 60, Offset = 30, NFA = 0.0031332629116749638
+  Periodicity = 60, Offset = 59, NFA = 3.24848871735527e-06
+  Periodicity = 90, Offset = 0, NFA = 0.0009634826448104125
+  Periodicity = 90, Offset = 89, NFA = 0.0009634826448104125
+
+The most prominent candidate: periodicity = 30, NFA = 7.679586275143973e-13
+```
+The histogram of the residuals in P-frames shows clear periodic peaks (highlighted in <span style="color:cyan"> cyan</span>):
+![alt text](asset/003_fake_background.png)
+
+
+## 💻 Usage with CLI
+
+If GUI is not desired, you can also run the program with command line arguments to specify the ROI mask and other parameters:
+```bash
+usage: perform_video_analysis.py [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--mask_path MASK_PATH] [--out_folder OUT_FOLDER] video_path
+```
+where:
+* `d`: number of neighbors to validate a peak residual (default: 3)
+* `space`: color space used for detection, accepted values are `{'Y', 'U', 'V'}` (default: `'Y'`)
+* `epsilon`: threshold for the Number of False Alarms (NFA) (default: 0.05)
+* `mask_path`: path to the binary ROI mask image in `.png`. If the mask is not in the same shape as the video frames, it will be readjusted to the video frame size by zero padding or cropping (default: `None`)
+* `out_folder`: output folder for results (default: `results/`)
+
+The execution arguments and results will be saved in `<out_folder>/<date_of_execution>/`.
+
+### 🧪 Example 1: detecting double compression in a full video
+Given a fully recompressed video `asset/office_recompressed.mp4`, we can run:
+```bash
+python perform_video_analysis.py asset/office_recompressed.mp4
+```
+which gives detection results:
+```
+Detected candidates (by A Contrario analysis):
+  Periodicity = 31, Offset = 0, NFA = 0.00018751240128970711
+
+The most prominent candidate: periodicity = 31, NFA = 0.00018751240128970711
+```
+
+On the other hand, if we run the detection on an original video `asset/office_original.mp4`:
+```bash
+python perform_video_analysis.py asset/office_original.mp4
+```
+which gives no detection:
+```
+No periodicity detected!
+```
+
+
+
+### 🧪 Example 2: detecting recompressed background in a faceswap video with ROI mask
+
+Given a faceswap video `asset/fake_003.mp4` and a binary ROI mask image `asset/fake_003_background_mask.png` selecting the background area, we can run:
+```bash
+python perform_video_analysis.py asset/fake_003.mp4 --mask_path asset/fake_003_background_mask.png
+```
+which gives detection results:
+```
+Detected candidates (by A Contrario analysis):
+  Periodicity = 15, Offset = 0, NFA = 0.002004693634577336
+  Periodicity = 15, Offset = 14, NFA = 0.0006576445075819903
+  Periodicity = 30, Offset = 0, NFA = 7.679586275143973e-13
+  Periodicity = 30, Offset = 29, NFA = 3.843936739891997e-12
+  Periodicity = 60, Offset = 0, NFA = 3.24848871735527e-06
+  Periodicity = 60, Offset = 29, NFA = 0.010216038405910469
+  Periodicity = 60, Offset = 30, NFA = 0.0031332629116749638
+  Periodicity = 60, Offset = 59, NFA = 3.24848871735527e-06
+  Periodicity = 90, Offset = 0, NFA = 0.0009634826448104125
+  Periodicity = 90, Offset = 89, NFA = 0.0009634826448104125
+
+The most prominent candidate: periodicity = 30, NFA = 7.679586275143973e-13
+```
+
+
+
+## 🗑️ Large temporary files
+
+At each run the program decodes the full frames and prediction residuals in a temporary folder under `gop_detection/tmp/`, then 
 detects double compression using these data. The intermediate
-data can take up to 1~2 GB depending on the resolution and
-the length of the video. You can safely delete `tmp` after
-running, or the program will automatically clear the folder
-before each execution.
+data can take several GB depending on the resolution and
+the length of the video. You can safely delete the `tmp/` folder after running the program.
 
+## 📖 Citation
+If you find this code useful in your research, please cite the following paper:
 
-
-## Bibtex
-```
-@inproceedings{li2023contrario,
-  title={A contrario detection of h. 264 video double compression},
-  author={Li, Yanhao and Gardella, Marina and Bammey, Quentin and Nikoukhah, Tina and Morel, Jean-Michel and Colom, Miguel and von Gioi, Rafael Grompone},
+```@inproceedings{li2023contrario,
+  title={A contrario detection of h.264 video double compression},
+  author={Li, Yanhao and Gardella, Marina and Bammey, Quentin and Nikoukhah, Tina and Morel, Jean-Michel and Colom, Miguel and Von Gioi, Rafael Grompone},
   booktitle={2023 IEEE International Conference on Image Processing (ICIP)},
   pages={1765--1769},
   year={2023},
@@ -128,6 +284,5 @@ before each execution.
 }
 ```
 
-
-Feel free to leave your comments at [Issues](https://github.com/li-yanhao/gop_detection/issues) for any found bugs or any discussion.
+Feel free to leave your comments at [Issues](https://github.com/li-yanhao/gop_detection/issues) for any bug or discussion.
 
