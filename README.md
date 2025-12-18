@@ -119,8 +119,6 @@ The code was tested in python 3.10.19
 
    ```
 
-🎉 Done! Now all the prerequisites are installed.
-
 5. (Optional for GUI users) Install the GUI plugin `tkinter` on your system if not installed yet:
 
    Ubuntu / Debian:
@@ -132,6 +130,8 @@ The code was tested in python 3.10.19
    ```bash
    brew install python-tk
    ```
+
+🎉 Done! Now all the prerequisites are installed.
 
 ## 🖱️ Usage with interactive GUI
 
