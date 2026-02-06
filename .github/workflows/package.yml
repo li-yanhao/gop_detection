@@ -2,7 +2,7 @@ name: Build Windows Exe
 
 on:
   push:
-    branches: [ "apate_windows", "copilot/fix-apate-windows-action" ] # 监听你的 apate_windows 分支
+    branches: [ "apate_windows" ] # 监听你的 apate_windows 分支
 
 jobs:
   build:
