@@ -40,8 +40,8 @@ jobs:
         # -w: 屏蔽所有警告（让日志干净点，防止其他缩进警告干扰）
         make clean
         make -j4 ldecod \
-          CFLAGS="-g -O2 -Wno-error=incompatible-pointer-types -fpermissive -w" \
-          LDFLAGS="-lpng -ltiff -ljpeg"
+          CFLAGS="-g -O2 -fcommon -Wno-error=incompatible-pointer-types -fpermissive -w" \
+          LDFLAGS="-lws2_32 -lpng -ltiff -ljpeg"
 
         mkdir -p ../dist_bin
         # 这里的路径一定要根据你 Makefile 实际产出的位置来
