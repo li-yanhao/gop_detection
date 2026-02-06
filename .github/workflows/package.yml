@@ -64,21 +64,24 @@ jobs:
         Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Copy-Item -Destination "dist_bin/ffmpeg.exe"
 
     # 5. 设置 Python 并打包
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
     - name: Install dependencies and Build Exe
       run: |
         pip install -r requirements.txt
         pip install pyinstaller
-        # 打包命令：将 dist_bin 里的 ldecod.exe 和 ffmpeg.exe 打入包内
-        pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" main.py
+
+        # 打包第一个：命令行版
+        # -n 指定生成的文件名为 video_analysis_cmd.exe
+        pyinstaller --onefile --add-data "dist_bin/*;dist_bin/" -n "video_analysis_cmd" perform_video_analysis.py
+
+        # 打包第二个：GUI 版
+        # --noconsole 确保运行时不弹出黑色的命令行窗口
+        # -n 指定生成的文件名为 video_analysis_gui.exe
+        pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" -n "video_analysis_gui" perform_video_analysis_gui.py
 
     # 6. 上传结果
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: GOP-Detection-Windows
+        name: GOP-Detection-Windows-All
         path: dist/*.exe
+
