@@ -7,6 +7,23 @@ import cv2
 
 OUTPUT_JM = "test_dec.yuv"
 
+import sys
+
+def get_bin_path(bin_name):
+    # 如果是 PyInstaller 打包后的运行环境
+    if hasattr(sys, '_MEIPASS'):
+        base_path = os.path.join(sys._MEIPASS, "dist_bin")
+    else:
+        raise Exception("Error: The binary files (ffmpeg/ldecod) are not found! Please make sure you have compiled the JM software and put the ffmpeg/ldecod.exe in the 'dist_bin' folder under the project root.")
+
+    return os.path.join(base_path, bin_name + ".exe")
+
+# 使用示例：
+ldecod_exe = get_bin_path("ldecod")
+ffmpeg_exe = get_bin_path("ffmpeg")
+ffprobe_exe = get_bin_path("ffprobe")
+
+
 def convert_to_h264(vid_fname:str, out_fname:str):
     """ Convert the input video to h264 format.
     param vid_fname: input video filename
@@ -15,7 +32,7 @@ def convert_to_h264(vid_fname:str, out_fname:str):
     """
 
     # 1. Verify the video is encoded by h264
-    ffprobe_command = f"ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
+    ffprobe_command = f"{ffprobe_exe} -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
     std_msg = subprocess.run(ffprobe_command, shell=True, capture_output=True, text=True)
     found_codec = std_msg.stdout[:-1]
 
@@ -25,7 +42,7 @@ def convert_to_h264(vid_fname:str, out_fname:str):
 
     # 2. Convert the video file to .h264 file.
     # out_fname = os.path.join(TMP_PATH, H264_VID_FNAME)
-    convert_command = f"ffmpeg -i {vid_fname} -an -vcodec copy {out_fname} -y"
+    convert_command = f"{ffmpeg_exe} -i {vid_fname} -an -vcodec copy {out_fname} -y"
     std_msg = subprocess.run(convert_command, shell=True, capture_output=True, text=True)
     return True
 
@@ -44,10 +61,9 @@ def decode_residuals(vid_fname:str, output_root:str):
     os.makedirs(output_folder, exist_ok=True)
 
 
-    JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../jm/bin/ldecod.exe")
-
     # 1.2 jm extracts intermediate files
-    inspect_command = f"{JM_EXE} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
+    inspect_command = f"{ldecod_exe} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
+
     # print(inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
@@ -81,7 +97,7 @@ def decode_frames(vid_fname:str, output_root:str):
     
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
-    ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
+    ffmpeg_command = f"{ffmpeg_exe} -i {vid_fname} -start_number 0 {img_out_pattern}"
     # print(ffmpeg_command)
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
 
