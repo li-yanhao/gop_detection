@@ -1,11 +1,17 @@
 # 🎥 A Contrario Detection of H.264 Video Double Compression
 
 
-This is a project detecting whether a video has been recompressed,
-and to estimate the fixed size of the primary Group of Pictures (GOP) of 
-a recompressd video. ([github link](https://github.com/li-yanhao/gop_detection/tree/apate))
+This is the official code of the paper: "**A contrario detection of h. 264 video double compression**", 2023 IEEE International Conference on Image Processing (ICIP), by Yanhao Li, Marina Gardella, Quentin Bammey, Tina Nikoukhah, Jean-Michel Morel, Miguel Colom and Rafael Grompone von Gioi.
 
-The project consists of two parts:
+📄 [Paper](https://hal.science/hal-04225423/file/A_Contrario_Detection_of_H_264_Video_Double_Compression_camera_ready_version.pdf)
+
+🚀 [DEMO](https://ipolcore.ipol.im/demo/clientApp/demo.html?id=77777000399)
+
+🌐 [Github](https://github.com/li-yanhao/gop_detection/)
+
+
+The repo consists of two parts:
+
 * An inspector for H.264 videos that extracts the
 intermediate data during the decompression. At present it can
 extract the prediction residuals, macroblock types, frame types,
@@ -13,14 +19,13 @@ display order and picture coding order. The extractor is based on the
 [JM software](https://iphome.hhi.de/suehring/tml/) 
 and its [extension](https://vqeg.github.io/software-tools/encoding/modified-avc-codec/).
 * An _a Contrario_ detector that detects potential periodic sequence
-of residual peaks in P-frames and validate the sequence if the Number
-of False Alarms (NFA) is significantly small.
+of residual peaks in P-frames caused by fixed-size Group of Pictures (**GOP**) in the primary compression and validate the sequence if the Number of False Alarms (NFA) is significantly small.
 
 
 ## 🛠️ Before using
 
 
-1. Clone the project (branch `apate`):
+1. Clone the project:
 
     step 1: Install Git LFS ([docs](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)) if it is not done yet, otherwise skip this step.
 
@@ -39,9 +44,9 @@ of False Alarms (NFA) is significantly small.
       git lfs install
     ```
 
-    step 2: Clone the repository (branch `apate`):
+    step 2: Clone the repository (branch `main`):
     ```bash
-    git clone -b apate --recurse-submodules https://github.com/li-yanhao/gop_detection.git
+    git clone -b main --recurse-submodules https://github.com/li-yanhao/gop_detection.git
     ```
 
 2. Install [ffmpeg](https://ffmpeg.org/). You could use a 3rd-party tool to install ffmpeg:
@@ -107,14 +112,12 @@ of False Alarms (NFA) is significantly small.
 4. Install the python requirements for the _a Contrario_ detector.
 The code was tested in python 3.10.19
    ```bash
-   conda create --name apate python=3.10.19
-   conda activate apate
+   conda create --name py310 python=3.10.19
+   conda activate py310
    
    pip install -r requirements.txt
 
    ```
-
-🎉 Done! Now all the prerequisites are installed.
 
 5. (Optional for GUI users) Install the GUI plugin `tkinter` on your system if not installed yet:
 
@@ -127,6 +130,8 @@ The code was tested in python 3.10.19
    ```bash
    brew install python-tk
    ```
+
+🎉 Done! Now all the prerequisites are installed.
 
 ## 🖱️ Usage with interactive GUI
 
@@ -270,7 +275,7 @@ the length of the video. You can safely delete the `tmp/` folder after running t
 If you find this code useful in your research, please cite the following paper:
 
 ```@inproceedings{li2023contrario,
-  title={A contrario detection of h. 264 video double compression},
+  title={A contrario detection of h.264 video double compression},
   author={Li, Yanhao and Gardella, Marina and Bammey, Quentin and Nikoukhah, Tina and Morel, Jean-Michel and Colom, Miguel and Von Gioi, Rafael Grompone},
   booktitle={2023 IEEE International Conference on Image Processing (ICIP)},
   pages={1765--1769},
@@ -278,3 +283,6 @@ If you find this code useful in your research, please cite the following paper:
   organization={IEEE}
 }
 ```
+
+Feel free to leave your comments at [Issues](https://github.com/li-yanhao/gop_detection/issues) for any bug or discussion.
+
