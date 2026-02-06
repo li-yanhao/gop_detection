@@ -2,7 +2,7 @@ name: Build Windows Exe
 
 on:
   push:
-    branches: [ "apate" ] # 监听你的 apate 分支
+    branches: [ "apate_windows" ] # 监听你的 apate_windows 分支
 
 jobs:
   build:
