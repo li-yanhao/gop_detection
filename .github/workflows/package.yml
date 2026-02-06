@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
     # 1. 检出代码 (包含 LFS 和 子模块)
