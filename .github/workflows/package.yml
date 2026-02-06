@@ -34,9 +34,16 @@ jobs:
       shell: msys2 {0}
       run: |
         cd jm
+        # 使用 sed 在 Makefile 的 CFLAGS 中加入忽略警告的参数
+        # 寻找包含 CFLAGS 的行并在其末尾添加参数
+        sed -i 's/CFLAGS =/CFLAGS = -Wno-error=incompatible-pointer-types -fpermissive /g' Makefile
+        
+        # 重新编译
+        make clean
         make -j4 ldecod
-        # 编译完成后，ldecod.exe 通常在 bin 文件夹或当前文件夹，确认路径
+        
         mkdir -p ../dist_bin
+        # 检查生成路径，通常在 bin 目录下
         cp bin/ldecod.exe ../dist_bin/
 
     # 4. 下载 Windows 版 FFmpeg
