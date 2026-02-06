@@ -1,0 +1,82 @@
+name: Build Windows Exe
+
+on:
+  push:
+    branches: [ "apate_windows", "copilot/fix-apate-windows-action" ] # 监听你的 apate_windows 分支
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    # 1. 检出代码 (包含 LFS 和 子模块)
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+        submodules: recursive
+
+    # 2. 设置 MSYS2 环境 (提供 make, gcc 和 依赖库)
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          make
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-libpng
+          mingw-w64-x86_64-libtiff
+          mingw-w64-x86_64-libjpeg-turbo
+
+    # 3. 编译 JM Decoder
+    - name: Compile JM Decoder
+      shell: msys2 {0}
+      run: |
+        cd jm
+        # 使用外部注入的方式强制忽略类型不匹配错误
+        # -Wno-error=incompatible-pointer-types: 将该错误降级为警告
+        # -fpermissive: 允许非标准的 C 代码
+        # -w: 屏蔽所有警告（让日志干净点，防止其他缩进警告干扰）
+        # LIBS: 添加 ws2_32 (Windows Socket), png, tiff, jpeg 库
+        make clean
+        make -j4 ldecod \
+          CFLAGS="-g -O2 -fcommon -Wno-error=incompatible-pointer-types -fpermissive -w" \
+          LIBS="-lm -lws2_32 -lpng -ltiff -ljpeg"
+
+        mkdir -p ../dist_bin
+        # 这里的路径一定要根据你 Makefile 实际产出的位置来
+        # 如果 bin 目录下没有，可以尝试 cp ldecod.exe ../dist_bin/
+        if [ -f bin/ldecod.exe ]; then
+          cp bin/ldecod.exe ../dist_bin/
+        else
+          cp ldecod.exe ../dist_bin/
+        fi
+
+    # 4. 下载 Windows 版 FFmpeg
+    - name: Download FFmpeg
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+        Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_temp
+        Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Copy-Item -Destination "dist_bin/ffmpeg.exe"
+
+    # 5. 设置 Python 并打包
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies and Build Exe
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
+        # 打包命令：将 dist_bin 里的 ldecod.exe 和 ffmpeg.exe 打入包内
+        pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" main.py
+
+    # 6. 上传结果
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GOP-Detection-Windows
+        path: dist/*.exe
