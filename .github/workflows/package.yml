@@ -11,11 +11,11 @@ jobs:
       contents: read
 
     steps:
-    # 1. 检出代码 (包含 LFS 和 子模块)
+    # 1. 检出代码 (包含子模块, 但跳过 LFS 以忽略 .mp4 和 .png 文件)
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        lfs: true
+        lfs: false
         submodules: recursive
 
     # 2. 设置 MSYS2 环境 (提供 make, gcc 和 依赖库)
