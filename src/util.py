@@ -34,10 +34,18 @@ def convert_to_h264(vid_fname:str, out_fname:str):
     # 1. Verify the video is encoded by h264
     ffprobe_command = f"{ffprobe_exe} -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
     std_msg = subprocess.run(ffprobe_command, shell=True, capture_output=True, text=True)
-    found_codec = std_msg.stdout[:-1]
+    found_codec = std_msg.stdout.strip()
+
+    if std_msg.returncode != 0 or not found_codec:
+        print(f"Error: Failed to detect codec for '{vid_fname}'.")
+        if std_msg.stderr:
+            print(f"ffprobe error: {std_msg.stderr}")
+        else:
+            print("ffprobe is not available. The package may be incomplete or ffprobe is not in the system PATH.")
+        return False
 
     if found_codec != "h264":
-        print(f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec {found_codec} is found!")
+        print(f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec '{found_codec}' is found!")
         return False
 
     # 2. Convert the video file to .h264 file.

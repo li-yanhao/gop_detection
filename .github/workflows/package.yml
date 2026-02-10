@@ -62,6 +62,7 @@ jobs:
         Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
         Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_temp
         Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Copy-Item -Destination "dist_bin/ffmpeg.exe"
+        Get-ChildItem -Path "ffmpeg_temp" -Filter "ffprobe.exe" -Recurse | Copy-Item -Destination "dist_bin/ffprobe.exe"
 
     # 5. 设置 Python 并打包
     - name: Install dependencies and Build Exe
