@@ -57,21 +57,32 @@ jobs:
 
         # Copy required DLLs from MSYS2 to dist_bin for runtime dependencies
         # These DLLs are needed when ldecod.exe runs outside MSYS2 environment
-        cp /mingw64/bin/libpng16-16.dll ../dist_bin/
-        cp /mingw64/bin/libwinpthread-1.dll ../dist_bin/
-        cp /mingw64/bin/libjpeg-8.dll ../dist_bin/
-        cp /mingw64/bin/libtiff-6.dll ../dist_bin/
-        # Copy additional dependencies that these libraries might need
-        cp /mingw64/bin/zlib1.dll ../dist_bin/
-        cp /mingw64/bin/libgcc_s_seh-1.dll ../dist_bin/
-        cp /mingw64/bin/libstdc++-6.dll ../dist_bin/
-        cp /mingw64/bin/libzstd.dll ../dist_bin/
-        cp /mingw64/bin/liblzma-5.dll ../dist_bin/
-        cp /mingw64/bin/libdeflate.dll ../dist_bin/
-        cp /mingw64/bin/libLerc.dll ../dist_bin/
-        cp /mingw64/bin/libjbig-0.dll ../dist_bin/
-        cp /mingw64/bin/libsharpyuv-0.dll ../dist_bin/
-        cp /mingw64/bin/libwebp-7.dll ../dist_bin/
+        # Use a loop to copy DLLs with error handling
+        REQUIRED_DLLS=(
+          libpng16-16.dll
+          libwinpthread-1.dll
+          libjpeg-8.dll
+          libtiff-6.dll
+          zlib1.dll
+          libgcc_s_seh-1.dll
+          libstdc++-6.dll
+          libzstd.dll
+          liblzma-5.dll
+          libdeflate.dll
+          libLerc.dll
+          libjbig-0.dll
+          libsharpyuv-0.dll
+          libwebp-7.dll
+        )
+        
+        for dll in "${REQUIRED_DLLS[@]}"; do
+          if [ -f /mingw64/bin/$dll ]; then
+            cp /mingw64/bin/$dll ../dist_bin/
+            echo "Copied $dll"
+          else
+            echo "Warning: $dll not found, skipping"
+          fi
+        done
 
     # 4. 下载 Windows 版 FFmpeg
     - name: Download FFmpeg
