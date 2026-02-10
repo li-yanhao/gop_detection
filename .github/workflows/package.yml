@@ -1,0 +1,106 @@
+name: Build Windows Exe
+
+on:
+  push:
+    branches: [ "apate_windows", "copilot/fix-ldecod-runtime-dependencies" ] # Build on apate_windows and fix branch
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+    # 1. 检出代码 (包含子模块, 但跳过 LFS 以忽略 .mp4 和 .png 文件)
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: false
+        submodules: recursive
+
+    # 2. 设置 MSYS2 环境 (提供 make, gcc 和 依赖库)
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          make
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-libpng
+          mingw-w64-x86_64-libtiff
+          mingw-w64-x86_64-libjpeg-turbo
+
+    # 3. 编译 JM Decoder
+    - name: Compile JM Decoder
+      shell: msys2 {0}
+      run: |
+        cd jm
+        # 使用外部注入的方式强制忽略类型不匹配错误
+        # -Wno-error=incompatible-pointer-types: 将该错误降级为警告
+        # -fpermissive: 允许非标准的 C 代码
+        # -w: 屏蔽所有警告（让日志干净点，防止其他缩进警告干扰）
+        # LIBS: 添加 ws2_32 (Windows Socket), png, tiff, jpeg 库
+        make clean
+        make -j4 ldecod \
+          CFLAGS="-g -O2 -fcommon -Wno-error=incompatible-pointer-types -fpermissive -w" \
+          LIBS="-lm -lws2_32 -lpng -ltiff -ljpeg"
+
+        mkdir -p ../dist_bin
+        # 这里的路径一定要根据你 Makefile 实际产出的位置来
+        # 如果 bin 目录下没有，可以尝试 cp ldecod.exe ../dist_bin/
+        if [ -f bin/ldecod.exe ]; then
+          cp bin/ldecod.exe ../dist_bin/
+        else
+          cp ldecod.exe ../dist_bin/
+        fi
+
+        # Copy required runtime DLLs from MSYS2/MinGW to dist_bin
+        # These DLLs are needed for ldecod.exe to run on systems without MSYS2
+        echo "Copying runtime DLLs..."
+        cp /mingw64/bin/libpng16-16.dll ../dist_bin/
+        cp /mingw64/bin/libtiff-6.dll ../dist_bin/
+        cp /mingw64/bin/libjpeg-8.dll ../dist_bin/
+        cp /mingw64/bin/libwinpthread-1.dll ../dist_bin/
+        # Copy additional dependencies that may be required by the above DLLs
+        cp /mingw64/bin/zlib1.dll ../dist_bin/ || true
+        cp /mingw64/bin/libdeflate.dll ../dist_bin/ || true
+        cp /mingw64/bin/libjbig-0.dll ../dist_bin/ || true
+        cp /mingw64/bin/libLerc.dll ../dist_bin/ || true
+        cp /mingw64/bin/liblzma-5.dll ../dist_bin/ || true
+        cp /mingw64/bin/libzstd.dll ../dist_bin/ || true
+        cp /mingw64/bin/libsharpyuv-0.dll ../dist_bin/ || true
+        cp /mingw64/bin/libwebp-7.dll ../dist_bin/ || true
+        echo "Runtime DLLs copied successfully"
+
+    # 4. 下载 Windows 版 FFmpeg
+    - name: Download FFmpeg
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+        Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_temp
+        Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Copy-Item -Destination "dist_bin/ffmpeg.exe"
+        Get-ChildItem -Path "ffmpeg_temp" -Filter "ffprobe.exe" -Recurse | Copy-Item -Destination "dist_bin/ffprobe.exe"
+
+    # 5. 设置 Python 并打包
+    - name: Install dependencies and Build Exe
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+        # 打包第一个：命令行版
+        # -n 指定生成的文件名为 video_analysis_cmd.exe
+        pyinstaller --onefile --add-data "dist_bin/*;dist_bin/" -n "video_analysis_cmd" perform_video_analysis.py
+
+        # 打包第二个：GUI 版
+        # --noconsole 确保运行时不弹出黑色的命令行窗口
+        # -n 指定生成的文件名为 video_analysis_gui.exe
+        pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" -n "video_analysis_gui" perform_video_analysis_gui.py
+
+    # 6. 上传结果
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GOP-Detection-Windows-All
+        path: dist/*.exe
+
