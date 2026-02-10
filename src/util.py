@@ -7,6 +7,7 @@ import ffmpeg
 import cv2
 
 OUTPUT_JM = "test_dec.yuv"
+# Directory name where executables are bundled in PyInstaller distributions
 BUNDLED_BIN_DIR = "dist_bin"
 
 def get_platform_exe_name(base_name):
@@ -92,7 +93,8 @@ def decode_residuals(vid_fname:str, output_root:str):
     
     JM_EXE = get_executable_path(get_platform_exe_name("ldecod"), dev_ldecod_path)
     
-    # Verify the executable exists if it's a full path (not just a name in PATH)
+    # Verify the executable exists if it contains a directory path
+    # (If it's just a name like "ldecod", we'll try to find it in PATH)
     if os.path.dirname(JM_EXE) and not os.path.exists(JM_EXE):
         print(f"Error: ldecod executable not found at {JM_EXE}")
         return False, None
