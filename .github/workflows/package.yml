@@ -2,7 +2,9 @@ name: Build Windows Exe
 
 on:
   push:
-    branches: [ "apate_windows", "copilot/fix-ldecod-runtime-dependencies" ] # Build on apate_windows and fix branch
+    branches: 
+      - "apate_windows"  # Primary branch for Windows builds
+      - "copilot/fix-ldecod-runtime-dependencies"  # Temporary: for testing this fix, remove after merge
 
 jobs:
   build:
@@ -63,14 +65,16 @@ jobs:
         cp /mingw64/bin/libjpeg-8.dll ../dist_bin/
         cp /mingw64/bin/libwinpthread-1.dll ../dist_bin/
         # Copy additional dependencies that may be required by the above DLLs
-        cp /mingw64/bin/zlib1.dll ../dist_bin/ || true
-        cp /mingw64/bin/libdeflate.dll ../dist_bin/ || true
-        cp /mingw64/bin/libjbig-0.dll ../dist_bin/ || true
-        cp /mingw64/bin/libLerc.dll ../dist_bin/ || true
-        cp /mingw64/bin/liblzma-5.dll ../dist_bin/ || true
-        cp /mingw64/bin/libzstd.dll ../dist_bin/ || true
-        cp /mingw64/bin/libsharpyuv-0.dll ../dist_bin/ || true
-        cp /mingw64/bin/libwebp-7.dll ../dist_bin/ || true
+        # Using || true for optional dependencies - will succeed even if some are not present
+        echo "Copying optional dependencies..."
+        cp /mingw64/bin/zlib1.dll ../dist_bin/ && echo "  ✓ zlib1.dll" || echo "  ✗ zlib1.dll (skipped)"
+        cp /mingw64/bin/libdeflate.dll ../dist_bin/ && echo "  ✓ libdeflate.dll" || echo "  ✗ libdeflate.dll (skipped)"
+        cp /mingw64/bin/libjbig-0.dll ../dist_bin/ && echo "  ✓ libjbig-0.dll" || echo "  ✗ libjbig-0.dll (skipped)"
+        cp /mingw64/bin/libLerc.dll ../dist_bin/ && echo "  ✓ libLerc.dll" || echo "  ✗ libLerc.dll (skipped)"
+        cp /mingw64/bin/liblzma-5.dll ../dist_bin/ && echo "  ✓ liblzma-5.dll" || echo "  ✗ liblzma-5.dll (skipped)"
+        cp /mingw64/bin/libzstd.dll ../dist_bin/ && echo "  ✓ libzstd.dll" || echo "  ✗ libzstd.dll (skipped)"
+        cp /mingw64/bin/libsharpyuv-0.dll ../dist_bin/ && echo "  ✓ libsharpyuv-0.dll" || echo "  ✗ libsharpyuv-0.dll (skipped)"
+        cp /mingw64/bin/libwebp-7.dll ../dist_bin/ && echo "  ✓ libwebp-7.dll" || echo "  ✗ libwebp-7.dll (skipped)"
         echo "Runtime DLLs copied successfully"
 
     # 4. 下载 Windows 版 FFmpeg
