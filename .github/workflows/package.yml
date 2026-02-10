@@ -57,30 +57,44 @@ jobs:
 
         # Copy required DLLs from MSYS2 to dist_bin for runtime dependencies
         # These DLLs are needed when ldecod.exe runs outside MSYS2 environment
-        # Use a loop to copy DLLs with error handling
-        REQUIRED_DLLS=(
-          libpng16-16.dll
+        # Dynamically detect runtime dependencies using ldd
+        echo "Detecting runtime dependencies for ldecod.exe..."
+        
+        # Get the actual ldecod.exe path
+        if [ -f bin/ldecod.exe ]; then
+          LDECOD_PATH="bin/ldecod.exe"
+        else
+          LDECOD_PATH="ldecod.exe"
+        fi
+        
+        # Extract DLL dependencies from ldd output
+        # Filter for DLLs in MINGW_PREFIX/bin directory
+        ldd "$LDECOD_PATH" | grep "${MINGW_PREFIX}/bin" | awk '{print $3}' | while read dll_path; do
+          if [ -f "$dll_path" ]; then
+            dll_name=$(basename "$dll_path")
+            cp "$dll_path" ../dist_bin/
+            echo "Copied $dll_name"
+          fi
+        done
+        
+        # Also copy some core runtime DLLs that may not be detected by ldd
+        # but are required for standalone execution
+        CORE_DLLS=(
           libwinpthread-1.dll
-          libjpeg-8.dll
-          libtiff-6.dll
-          zlib1.dll
           libgcc_s_seh-1.dll
           libstdc++-6.dll
-          libzstd.dll
-          liblzma-5.dll
-          libdeflate.dll
-          libLerc.dll
-          libjbig-0.dll
-          libsharpyuv-0.dll
-          libwebp-7.dll
         )
         
-        for dll in "${REQUIRED_DLLS[@]}"; do
-          if [ -f /mingw64/bin/$dll ]; then
-            cp /mingw64/bin/$dll ../dist_bin/
-            echo "Copied $dll"
+        for dll in "${CORE_DLLS[@]}"; do
+          dll_path="${MINGW_PREFIX}/bin/$dll"
+          if [ -f "$dll_path" ]; then
+            # Check if not already copied
+            if [ ! -f "../dist_bin/$dll" ]; then
+              cp "$dll_path" ../dist_bin/
+              echo "Copied $dll (core runtime)"
+            fi
           else
-            echo "Warning: $dll not found, skipping"
+            echo "Warning: Core DLL $dll not found at $dll_path"
           fi
         done
 
