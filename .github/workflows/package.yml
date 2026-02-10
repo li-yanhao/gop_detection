@@ -120,7 +120,8 @@ jobs:
         # 打包第二个：GUI 版
         # --noconsole 确保运行时不弹出黑色的命令行窗口
         # -n 指定生成的文件名为 video_analysis_gui.exe
-        pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_gui" perform_video_analysis_gui.py
+        # pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_gui" perform_video_analysis_gui.py
+        pyinstaller --onefile --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_gui" perform_video_analysis_gui.py
 
     # 6. 上传结果
     - name: Upload Artifact
