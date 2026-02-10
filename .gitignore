@@ -23,6 +23,9 @@ wheels/
 # Temporary files
 tmp/
 *.tmp
+dataDec.txt
+log.dec
+test_dec.yuv
 
 # IDE
 .vscode/
