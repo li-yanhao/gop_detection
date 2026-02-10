@@ -13,10 +13,19 @@ def get_bin_path(bin_name):
     # 如果是 PyInstaller 打包后的运行环境
     if hasattr(sys, '_MEIPASS'):
         base_path = os.path.join(sys._MEIPASS, "dist_bin")
+        return os.path.join(base_path, bin_name + ".exe")
     else:
-        raise Exception("Error: The binary files (ffmpeg/ldecod) are not found! Please make sure you have compiled the JM software and put the ffmpeg/ldecod.exe in the 'dist_bin' folder under the project root.")
-
-    return os.path.join(base_path, bin_name + ".exe")
+        # Development mode: use system binaries for ffmpeg/ffprobe, and jm folder for ldecod
+        if bin_name == "ldecod":
+            # Get the project root directory (parent of src directory)
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ldecod_path = os.path.join(project_root, "jm", "bin", "ldecod.exe")
+            if not os.path.exists(ldecod_path):
+                raise Exception(f"Error: ldecod binary not found at {ldecod_path}. Please compile the JM software by running 'cd jm && make -j ldecod'")
+            return ldecod_path
+        else:
+            # For ffmpeg and ffprobe, use system binaries
+            return bin_name
 
 # 使用示例：
 ldecod_exe = get_bin_path("ldecod")
