@@ -1,11 +1,35 @@
 import os
 import subprocess
+import sys
 
 import numpy as np
 import ffmpeg
 import cv2
 
 OUTPUT_JM = "test_dec.yuv"
+
+def get_base_path():
+    """Get the base path for resources, handling both PyInstaller bundle and development environments."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle
+        return sys._MEIPASS
+    else:
+        # Running in a normal Python environment
+        return os.path.abspath(os.path.dirname(__file__))
+
+def get_executable_path(exe_name):
+    """Get the path to an executable, handling both PyInstaller bundle and development environments.
+    
+    For PyInstaller bundles, looks in the bundled dist_bin directory first.
+    For development, assumes the executable is in PATH.
+    """
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle - look in bundled dist_bin directory
+        bundled_exe = os.path.join(sys._MEIPASS, "dist_bin", exe_name)
+        if os.path.exists(bundled_exe):
+            return bundled_exe
+    # Fall back to assuming it's in PATH (for development or system-installed)
+    return exe_name
 
 def convert_to_h264(vid_fname:str, out_fname:str):
     """ Convert the input video to h264 format.
@@ -14,8 +38,12 @@ def convert_to_h264(vid_fname:str, out_fname:str):
     return: True if success, False otherwise
     """
 
+    # Get paths to ffprobe and ffmpeg executables
+    ffprobe_exe = get_executable_path("ffprobe.exe" if sys.platform == "win32" else "ffprobe")
+    ffmpeg_exe = get_executable_path("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+
     # 1. Verify the video is encoded by h264
-    ffprobe_command = f"ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
+    ffprobe_command = f'"{ffprobe_exe}" -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "{vid_fname}"'
     std_msg = subprocess.run(ffprobe_command, shell=True, capture_output=True, text=True)
     found_codec = std_msg.stdout[:-1]
 
@@ -25,7 +53,7 @@ def convert_to_h264(vid_fname:str, out_fname:str):
 
     # 2. Convert the video file to .h264 file.
     # out_fname = os.path.join(TMP_PATH, H264_VID_FNAME)
-    convert_command = f"ffmpeg -i {vid_fname} -an -vcodec copy {out_fname} -y"
+    convert_command = f'"{ffmpeg_exe}" -i "{vid_fname}" -an -vcodec copy "{out_fname}" -y'
     std_msg = subprocess.run(convert_command, shell=True, capture_output=True, text=True)
     return True
 
@@ -43,11 +71,24 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     os.makedirs(output_folder, exist_ok=True)
 
-
-    JM_EXE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../jm/bin/ldecod.exe")
+    # Determine the path to ldecod.exe
+    base_path = get_base_path()
+    
+    # Try bundled location first (for PyInstaller packages)
+    bundled_exe = os.path.join(base_path, "dist_bin", "ldecod.exe")
+    # Fall back to source location (for development)
+    source_exe = os.path.join(base_path, "..", "jm", "bin", "ldecod.exe")
+    
+    if os.path.exists(bundled_exe):
+        JM_EXE = bundled_exe
+    elif os.path.exists(source_exe):
+        JM_EXE = source_exe
+    else:
+        print(f"Error: ldecod.exe not found in bundled location ({bundled_exe}) or source location ({source_exe})")
+        return False, None
 
     # 1.2 jm extracts intermediate files
-    inspect_command = f"{JM_EXE} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
+    inspect_command = f'"{JM_EXE}" -i "{vid_fname}" -o "{OUTPUT_JM}" -inspect "{output_folder}"'
     # print(inspect_command)
     std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
 
@@ -79,9 +120,12 @@ def decode_frames(vid_fname:str, output_root:str):
 
     os.makedirs(output_folder, exist_ok=True)
     
+    # Get path to ffmpeg executable
+    ffmpeg_exe = get_executable_path("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+    
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
-    ffmpeg_command = f"ffmpeg -i {vid_fname} -start_number 0 {img_out_pattern}"
+    ffmpeg_command = f'"{ffmpeg_exe}" -i "{vid_fname}" -start_number 0 "{img_out_pattern}"'
     # print(ffmpeg_command)
     std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
 
