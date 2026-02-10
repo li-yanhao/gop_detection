@@ -85,18 +85,15 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     os.makedirs(output_folder, exist_ok=True)
 
-    # Determine the path to ldecod.exe
+    # Determine the path to ldecod executable
     base_path = get_base_path()
-    dev_ldecod_path = os.path.join(base_path, "..", "jm", "bin", get_platform_exe_name("ldecod"))
+    # In development, ldecod is in jm/bin/ relative to the parent of src/
+    dev_ldecod_path = os.path.join(os.path.dirname(base_path), "jm", "bin", get_platform_exe_name("ldecod"))
     
     JM_EXE = get_executable_path(get_platform_exe_name("ldecod"), dev_ldecod_path)
     
-    # Verify the executable exists and is accessible
-    if not os.path.exists(JM_EXE) and JM_EXE == get_platform_exe_name("ldecod"):
-        # If it's just the executable name (no path), it might be in PATH, so we'll try anyway
-        # But if it's a full path that doesn't exist, report error
-        pass
-    elif not os.path.exists(JM_EXE):
+    # Verify the executable exists if it's a full path (not just a name in PATH)
+    if os.path.dirname(JM_EXE) and not os.path.exists(JM_EXE):
         print(f"Error: ldecod executable not found at {JM_EXE}")
         return False, None
 
