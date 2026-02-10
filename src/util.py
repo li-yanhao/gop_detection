@@ -41,7 +41,7 @@ def convert_to_h264(vid_fname:str, out_fname:str):
         if std_msg.stderr:
             print(f"ffprobe error: {std_msg.stderr}")
         else:
-            print("ffprobe may not be installed or available in the system PATH.")
+            print("ffprobe is not available. The package may be incomplete or ffprobe is not in the system PATH.")
         return False
 
     if found_codec != "h264":
