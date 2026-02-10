@@ -7,6 +7,11 @@ import ffmpeg
 import cv2
 
 OUTPUT_JM = "test_dec.yuv"
+BUNDLED_BIN_DIR = "dist_bin"
+
+def get_platform_exe_name(base_name):
+    """Add .exe extension on Windows, otherwise return base name as-is."""
+    return f"{base_name}.exe" if sys.platform == "win32" else base_name
 
 def get_base_path():
     """Get the base path for resources, handling both PyInstaller bundle and development environments."""
@@ -17,18 +22,27 @@ def get_base_path():
         # Running in a normal Python environment
         return os.path.abspath(os.path.dirname(__file__))
 
-def get_executable_path(exe_name):
+def get_executable_path(exe_name, dev_path=None):
     """Get the path to an executable, handling both PyInstaller bundle and development environments.
     
     For PyInstaller bundles, looks in the bundled dist_bin directory first.
-    For development, assumes the executable is in PATH.
+    For development, uses dev_path if provided, otherwise assumes the executable is in PATH.
+    
+    Args:
+        exe_name: Name of the executable file (with platform-specific extension)
+        dev_path: Optional path to the executable in development environment
     """
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         # Running in a PyInstaller bundle - look in bundled dist_bin directory
-        bundled_exe = os.path.join(sys._MEIPASS, "dist_bin", exe_name)
+        bundled_exe = os.path.join(sys._MEIPASS, BUNDLED_BIN_DIR, exe_name)
         if os.path.exists(bundled_exe):
             return bundled_exe
-    # Fall back to assuming it's in PATH (for development or system-installed)
+    
+    # For development environment
+    if dev_path and os.path.exists(dev_path):
+        return dev_path
+    
+    # Fall back to assuming it's in PATH
     return exe_name
 
 def convert_to_h264(vid_fname:str, out_fname:str):
@@ -39,8 +53,8 @@ def convert_to_h264(vid_fname:str, out_fname:str):
     """
 
     # Get paths to ffprobe and ffmpeg executables
-    ffprobe_exe = get_executable_path("ffprobe.exe" if sys.platform == "win32" else "ffprobe")
-    ffmpeg_exe = get_executable_path("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+    ffprobe_exe = get_executable_path(get_platform_exe_name("ffprobe"))
+    ffmpeg_exe = get_executable_path(get_platform_exe_name("ffmpeg"))
 
     # 1. Verify the video is encoded by h264
     ffprobe_command = f'"{ffprobe_exe}" -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "{vid_fname}"'
@@ -73,18 +87,17 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     # Determine the path to ldecod.exe
     base_path = get_base_path()
+    dev_ldecod_path = os.path.join(base_path, "..", "jm", "bin", get_platform_exe_name("ldecod"))
     
-    # Try bundled location first (for PyInstaller packages)
-    bundled_exe = os.path.join(base_path, "dist_bin", "ldecod.exe")
-    # Fall back to source location (for development)
-    source_exe = os.path.join(base_path, "..", "jm", "bin", "ldecod.exe")
+    JM_EXE = get_executable_path(get_platform_exe_name("ldecod"), dev_ldecod_path)
     
-    if os.path.exists(bundled_exe):
-        JM_EXE = bundled_exe
-    elif os.path.exists(source_exe):
-        JM_EXE = source_exe
-    else:
-        print(f"Error: ldecod.exe not found in bundled location ({bundled_exe}) or source location ({source_exe})")
+    # Verify the executable exists and is accessible
+    if not os.path.exists(JM_EXE) and JM_EXE == get_platform_exe_name("ldecod"):
+        # If it's just the executable name (no path), it might be in PATH, so we'll try anyway
+        # But if it's a full path that doesn't exist, report error
+        pass
+    elif not os.path.exists(JM_EXE):
+        print(f"Error: ldecod executable not found at {JM_EXE}")
         return False, None
 
     # 1.2 jm extracts intermediate files
@@ -121,7 +134,7 @@ def decode_frames(vid_fname:str, output_root:str):
     os.makedirs(output_folder, exist_ok=True)
     
     # Get path to ffmpeg executable
-    ffmpeg_exe = get_executable_path("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+    ffmpeg_exe = get_executable_path(get_platform_exe_name("ffmpeg"))
     
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
