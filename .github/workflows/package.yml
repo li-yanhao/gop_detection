@@ -2,7 +2,7 @@ name: Build Windows Exe
 
 on:
   push:
-    branches: [ "apate_windows" ] # 监听你的 apate_windows 分支
+    branches: [ "apate_windows" ] # Listen to your apate_windows branch
 
 jobs:
   build:
@@ -11,14 +11,14 @@ jobs:
       contents: read
 
     steps:
-    # 1. 检出代码 (包含子模块, 但跳过 LFS 以忽略 .mp4 和 .png 文件)
+    # 1. Check out the code (including submodules, but skip LFS to ignore .mp4 and .png files)
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         lfs: false
         submodules: recursive
 
-    # 2. 设置 MSYS2 环境 (提供 make, gcc 和 依赖库)
+    # 2. Set up MSYS2 environment (provides make, gcc, and dependency libraries)
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -31,24 +31,24 @@ jobs:
           mingw-w64-x86_64-libtiff
           mingw-w64-x86_64-libjpeg-turbo
 
-    # 3. 编译 JM Decoder
+    # 3. Compile JM Decoder
     - name: Compile JM Decoder
       shell: msys2 {0}
       run: |
         cd jm
-        # 使用外部注入的方式强制忽略类型不匹配错误
-        # -Wno-error=incompatible-pointer-types: 将该错误降级为警告
-        # -fpermissive: 允许非标准的 C 代码
-        # -w: 屏蔽所有警告（让日志干净点，防止其他缩进警告干扰）
-        # LIBS: 添加 ws2_32 (Windows Socket), png, tiff, jpeg 库
+        # Use external injection to force ignoring type mismatch errors
+        # -Wno-error=incompatible-pointer-types: Downgrade this error to a warning
+        # -fpermissive: Allow non-standard C code
+        # -w: Suppress all warnings (to keep the logs clean and avoid interference from other indentation warnings)
+        # LIBS: Add ws2_32 (Windows Socket), png, tiff, jpeg libraries
         make clean
         make -j4 ldecod \
           CFLAGS="-g -O2 -fcommon -Wno-error=incompatible-pointer-types -fpermissive -w" \
           LIBS="-lm -lws2_32 -lpng -ltiff -ljpeg"
 
         mkdir -p ../dist_bin
-        # 这里的路径一定要根据你 Makefile 实际产出的位置来
-        # 如果 bin 目录下没有，可以尝试 cp ldecod.exe ../dist_bin/
+        # Adjust the path based on the actual output location in your Makefile
+        # If the bin directory does not exist, try cp ldecod.exe ../dist_bin/
         if [ -f bin/ldecod.exe ]; then
           cp bin/ldecod.exe ../dist_bin/
         else
@@ -98,7 +98,7 @@ jobs:
           fi
         done
 
-    # 4. 下载 Windows 版 FFmpeg
+    # 4. Download Windows version of FFmpeg
     - name: Download FFmpeg
       shell: pwsh
       run: |
@@ -107,26 +107,25 @@ jobs:
         Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Copy-Item -Destination "dist_bin/ffmpeg.exe"
         Get-ChildItem -Path "ffmpeg_temp" -Filter "ffprobe.exe" -Recurse | Copy-Item -Destination "dist_bin/ffprobe.exe"
 
-    # 5. 设置 Python 并打包
+    # 5. Set up Python and package executables
     - name: Install dependencies and Build Exe
       run: |
         pip install -r requirements.txt
         pip install pyinstaller
 
-        # 打包第一个：命令行版
-        # -n 指定生成的文件名为 video_analysis_cmd.exe
+        # Package the first executable: Command-line version
+        # -n specifies the output file name as video_analysis_cmd.exe
         pyinstaller --onefile --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_cmd" perform_video_analysis.py
 
-        # 打包第二个：GUI 版
-        # --noconsole 确保运行时不弹出黑色的命令行窗口
-        # -n 指定生成的文件名为 video_analysis_gui.exe
+        # Package the second executable: GUI version
+        # --noconsole ensures no black command-line window pops up during execution
+        # -n specifies the output file name as video_analysis_gui.exe
         # pyinstaller --onefile --noconsole --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_gui" perform_video_analysis_gui.py
         pyinstaller --onefile --add-data "dist_bin/*;dist_bin/" --collect-all imagecodecs --clean -n "video_analysis_gui" perform_video_analysis_gui.py
 
-    # 6. 上传结果
+    # 6. Upload the results
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: GOP-Detection-Windows-All
         path: dist/*.exe
-

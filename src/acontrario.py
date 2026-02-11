@@ -1,5 +1,4 @@
 import os
-import glob
 import pickle
 
 import numpy as np
@@ -7,16 +6,21 @@ import pandas as pd
 from scipy import stats
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-
 import plotly.graph_objects as go
-
 import mplcursors
+
 from .util import pad_and_crop
 from .residual_info import read_one_residual
 
 
 class AContrarioAnalyser:
-    def __init__(self, epsilon=1, d=3, start_at_0=False, space="Y", max_num=-1):
+
+    def __init__(self,
+                 epsilon=1,
+                 d=3,
+                 start_at_0=False,
+                 space="Y",
+                 max_num=-1):
         """ Main class for a-contrario analysis of detecting double compression from prediction residuals.
 
         Parameters
@@ -35,7 +39,7 @@ class AContrarioAnalyser:
 
         # frame information
         self.frame_types = None  # frame types, size (num_frames,), in {"I", "P", "B"}
-        self.stream_nums = None  
+        self.stream_nums = None
         self.display_nums = None
 
         # preprocessed residuals
@@ -47,14 +51,13 @@ class AContrarioAnalyser:
         self.detected_result = None
         self.valid_sequence_mask = None
 
-
         # parameters of the a contrario detection
-        self.epsilon = epsilon          # the NFA threshold
-        self.d = d                      # the range of neighborhood to valid a peak residual
-        self.start_at_0 = start_at_0    # whether the offset b is fixed to 0
-        self.space = space              # color space used for detection
+        self.epsilon = epsilon  # the NFA threshold
+        self.d = d  # the range of neighborhood to valid a peak residual
+        self.start_at_0 = start_at_0  # whether the offset b is fixed to 0
+        self.space = space  # color space used for detection
 
-        # self.max_num = max_num if max_num > 0 else 
+        # self.max_num = max_num if max_num > 0 else
         self.max_num = max_num if max_num > 0 else np.iinfo(np.int32).max
 
     def load_frame_info(self, frame_info_list, space, roi_mask=None):
@@ -67,8 +70,10 @@ class AContrarioAnalyser:
         """
 
         self.frame_types = np.array([fi.frame_type for fi in frame_info_list])
-        self.stream_nums = np.array([fi.stream_number for fi in frame_info_list])
-        self.display_nums = np.array([fi.display_number for fi in frame_info_list])
+        self.stream_nums = np.array(
+            [fi.stream_number for fi in frame_info_list])
+        self.display_nums = np.array(
+            [fi.display_number for fi in frame_info_list])
 
         residuals = []
         for i in range(len(frame_info_list)):
@@ -105,7 +110,7 @@ class AContrarioAnalyser:
             self.residuals = self.residuals_V.copy()
         elif self.space == "YUV":
             self.residuals = self.residuals_Y + self.residuals_U + self.residuals_V
-            
+
         self.valid_peak_mask = np.zeros(len(self.residuals), dtype=bool)
 
         # a map indicating that the current i-th signal is related to the map[i]-th signal which is a peak
@@ -153,7 +158,7 @@ class AContrarioAnalyser:
                     self.map_to_peak_pos[pos] = pivot
                     pos -= 1
 
-        # I frames cover the I-P residual peaks. An I index and its previous B indice until 
+        # I frames cover the I-P residual peaks. An I index and its previous B indice until
         # its previous P index are ignored.
         I_indices = np.where(self.frame_types == 'I')[0]
         self.valid_sequence_mask = np.ones(len(self.residuals), dtype=bool)
@@ -164,7 +169,7 @@ class AContrarioAnalyser:
 
     def load_from_ckpt(self, ckpt_fname):
         try:
-            checkpoint = pickle.load( open( ckpt_fname, "rb" ) )
+            checkpoint = pickle.load(open(ckpt_fname, "rb"))
             self.residuals_Y = checkpoint["residuals_Y"]
             self.residuals_U = checkpoint["residuals_U"]
             self.residuals_V = checkpoint["residuals_V"]
@@ -185,10 +190,9 @@ class AContrarioAnalyser:
             "frame_types": self.frame_types,
         }
 
-        pickle.dump(saved_contents, open( ckpt_fname, "wb" ))
+        pickle.dump(saved_contents, open(ckpt_fname, "wb"))
 
         return True
-
 
     def visualize_plt(self, save_fname=None):
         fig, ax = plt.subplots(figsize=(20, 5))
@@ -208,15 +212,20 @@ class AContrarioAnalyser:
         if self.detected_result is not None:
             for i in self.detected_result[3]:
                 colors[i] = 'cyan'
-                plt.text(x=i, y=self.residuals[i]+0.1, s=str(i),
+                plt.text(x=i,
+                         y=self.residuals[i] + 0.1,
+                         s=str(i),
                          horizontalalignment='center',
                          verticalalignment='center')
 
             p, b, NFA, _ = self.detected_result
-            plt.text(x=2, y=self.residuals.max(), s=f"period={p} \noffset={b} \nNFA={NFA}",
+            plt.text(x=2,
+                     y=self.residuals.max(),
+                     s=f"period={p} \noffset={b} \nNFA={NFA}",
                      horizontalalignment='center',
                      verticalalignment='center',
-                     ha='left', va='top')
+                     ha='left',
+                     va='top')
 
         bars = ax.bar(self.display_nums, self.residuals, color=colors)
 
@@ -225,7 +234,8 @@ class AContrarioAnalyser:
         color_patches.append(mpatches.Patch(color='blue', label='P frame'))
         color_patches.append(mpatches.Patch(color='green', label='B frame'))
         if self.detected_result is not None:
-            color_patches.append(mpatches.Patch(color='cyan', label='detected change frame'))
+            color_patches.append(
+                mpatches.Patch(color='cyan', label='detected change frame'))
         ax.legend(handles=color_patches)
 
         plt.xlabel('frame number')
@@ -233,11 +243,15 @@ class AContrarioAnalyser:
         plt.title('Frame residual')
 
         cursor = mplcursors.cursor(hover=mplcursors.HoverMode.Transient)
+
         @cursor.connect("add")
         def on_add(sel):
             x, y, width, height = sel.artist[sel.index].get_bbox().bounds
-            sel.annotation.set(text=f"num={round(x)}, res={height:.2f} \ntype={self.frame_types[sel.index]}",
-                               position=(0, 20), anncoords="offset points")
+            sel.annotation.set(
+                text=
+                f"num={round(x)}, res={height:.2f} \ntype={self.frame_types[sel.index]}",
+                position=(0, 20),
+                anncoords="offset points")
             sel.annotation.xy = (x, y + height)
 
         if save_fname is not None:
@@ -251,16 +265,15 @@ class AContrarioAnalyser:
             file extension, which can be ".png", ".jpg", or ".html".
         '''
 
-        color_map = {
-            "I": "red",
-            "P": "blue",
-            "B": "green"
-        }
+        color_map = {"I": "red", "P": "blue", "B": "green"}
 
         df = pd.DataFrame({
-            "frame_type": self.frame_types,
-            "frame_number": self.display_nums + 1, # make frame number start from 1
-            "residuals": self.residuals,
+            "frame_type":
+            self.frame_types,
+            "frame_number":
+            self.display_nums + 1,  # make frame number start from 1
+            "residuals":
+            self.residuals,
             "color": [color_map[type] for type in self.frame_types]
         })
 
@@ -275,71 +288,65 @@ class AContrarioAnalyser:
                          "frame type: %{customdata}"
 
         I_df = df.query("color == 'red'")
-        fig.add_trace(go.Bar(
-            x=I_df["frame_number"],
-            y=I_df["residuals"],
-            name='I frame',
-            marker_color="red",
-            customdata=I_df["frame_type"],
-            hovertemplate=hover_template
-        ))
+        fig.add_trace(
+            go.Bar(x=I_df["frame_number"],
+                   y=I_df["residuals"],
+                   name='I frame',
+                   marker_color="red",
+                   customdata=I_df["frame_type"],
+                   hovertemplate=hover_template))
 
         P_df = df.query("color == 'blue'")
-        fig.add_trace(go.Bar(
-            x=P_df["frame_number"],
-            y=P_df["residuals"],
-            name='P frame',
-            marker_color="blue",
-            customdata=P_df["frame_type"],
-            hovertemplate=hover_template
-        ))
+        fig.add_trace(
+            go.Bar(x=P_df["frame_number"],
+                   y=P_df["residuals"],
+                   name='P frame',
+                   marker_color="blue",
+                   customdata=P_df["frame_type"],
+                   hovertemplate=hover_template))
 
         B_df = df.query("color == 'green'")
-        fig.add_trace(go.Bar(
-            x=B_df["frame_number"],
-            y=B_df["residuals"],
-            name='B frame',
-            marker_color="green",
-            customdata=B_df["frame_type"],
-            hovertemplate=hover_template
-        ))
+        fig.add_trace(
+            go.Bar(x=B_df["frame_number"],
+                   y=B_df["residuals"],
+                   name='B frame',
+                   marker_color="green",
+                   customdata=B_df["frame_type"],
+                   hovertemplate=hover_template))
 
         abnormal_df = df.query("color == 'cyan'")
-        fig.add_trace(go.Bar(
-            x=abnormal_df["frame_number"],
-            y=abnormal_df["residuals"],
-            name='P frame',
-            marker_color="cyan", # TODO: back to cyan
-            showlegend=False,
-            customdata=abnormal_df["frame_type"],
-            hovertemplate=hover_template
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=abnormal_df["frame_number"],
+                y=abnormal_df["residuals"],
+                name='P frame',
+                marker_color="cyan",  # TODO: back to cyan
+                showlegend=False,
+                customdata=abnormal_df["frame_type"],
+                hovertemplate=hover_template))
 
         buttons = list([
-            dict(
-                args=[{"marker.color": ["red", "blue", "green", "blue"],
-                       "name": ["I frame", "P frame", "B frame", "P frame"],
-                       "showlegend": [True, True, True, False]},
-                      [0, 1, 2, 3]],
-                label="raw",
-                method="restyle"
-            ),
+            dict(args=[{
+                "marker.color": ["red", "blue", "green", "blue"],
+                "name": ["I frame", "P frame", "B frame", "P frame"],
+                "showlegend": [True, True, True, False]
+            }, [0, 1, 2, 3]],
+                 label="raw",
+                 method="restyle"),
             dict(
                 # args=[{"marker.color": [df["color"]]}, [0]],
-                args=[{"marker.color": ["red", "blue", "green", "cyan"],
-                       "name": ["I frame", "P frame", "B frame", "peak"],
-                       "showlegend": [True, True, True, True]},
-                      [0, 1, 2, 3]],
+                args=[{
+                    "marker.color": ["red", "blue", "green", "cyan"],
+                    "name": ["I frame", "P frame", "B frame", "peak"],
+                    "showlegend": [True, True, True, True]
+                }, [0, 1, 2, 3]],
                 label="detection",
-                method="restyle"
-            )
+                method="restyle")
         ])
 
-        fig.update_layout(
-            font_size=14,
-            xaxis={'title': 'frame number'},
-            yaxis={'title': 'prediction residual'}
-        )
+        fig.update_layout(font_size=14,
+                          xaxis={'title': 'frame number'},
+                          yaxis={'title': 'prediction residual'})
 
         if open_browser:
             fig.show()
@@ -354,7 +361,8 @@ class AContrarioAnalyser:
             # replace extension with .html, but the extension can be anything
             save_fname_html = os.path.splitext(save_fname)[0] + ".html"
             fig.write_html(save_fname_html)
-            print("Saved visualized results to: {} and {}".format(save_fname, save_fname_html))
+            print("Saved visualized results to: {} and {}".format(
+                save_fname, save_fname_html))
             print()
 
     def compute_NFA(self, pi, bij, d, N_test):
@@ -423,7 +431,8 @@ class AContrarioAnalyser:
         print()
         self.detected_result = detected_results[best_i]
 
-        detections_to_return = [(p,b,NFA) for p,b,NFA,_ in detected_results]
+        detections_to_return = [(p, b, NFA)
+                                for p, b, NFA, _ in detected_results]
 
         return detections_to_return
 
@@ -440,4 +449,3 @@ def compute_residual(img_res, mask=None):
         return np.mean(np.abs(img_res))
     else:
         return (np.abs(img_res) * mask).sum() / mask.sum()
-

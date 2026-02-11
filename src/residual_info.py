@@ -7,19 +7,22 @@ import tifffile
 
 @dataclass
 class ResidualInfo:
-    fname: str                  # filename of the residual file, in .tiff
-    stream_number: int          # decoding order in the video
-    picture_order: int          # raw picture order in GOP
-    frame_type: str             # in {"I", "P", "B"}
-    display_number:int = -1     # to be filled after sorting
+    fname: str  # filename of the residual file, in .tiff
+    stream_number: int  # decoding order in the video
+    picture_order: int  # raw picture order in GOP
+    frame_type: str  # in {"I", "P", "B"}
+    display_number: int = -1  # to be filled after sorting
 
 
-def read_one_residual(fname:str):
-    assert fname.endswith(".tiff"), "Currently only .tiff format is supported for residual files."
+def read_one_residual(fname: str):
+    assert fname.endswith(
+        ".tiff"
+    ), "Currently only .tiff format is supported for residual files."
     img = tifffile.imread(fname)
     return img.astype(np.float32)
 
-def parse_frame_type(filename:str):
+
+def parse_frame_type(filename: str):
     base_name = os.path.basename(filename)
     parts = base_name.split('_')
     frame_part = parts[3]
@@ -29,7 +32,8 @@ def parse_frame_type(filename:str):
         print(f"Warning: Cannot parse frame type from filename: {filename}")
         return "?"
 
-def parse_stream_number(filename:str):
+
+def parse_stream_number(filename: str):
     base_name = os.path.basename(filename)
     parts = base_name.split('_')
     stream_part = parts[1]
@@ -39,7 +43,8 @@ def parse_stream_number(filename:str):
         print(f"Warning: Cannot parse stream number from filename: {filename}")
         return -1
 
-def parse_picture_order(filename:str):
+
+def parse_picture_order(filename: str):
     base_name = os.path.basename(filename)
     parts = base_name.split('_')
     picture_part = parts[2]
@@ -50,7 +55,8 @@ def parse_picture_order(filename:str):
         return -1
 
 
-def get_sorted_residual_info_list(folder:str, space:str) -> list[ResidualInfo]:
+def get_sorted_residual_info_list(folder: str,
+                                  space: str) -> list[ResidualInfo]:
     """ Parse and sort filenames in the residual folder (the output folder of JM software) for a specific color space.
         
         The filename components are:
@@ -76,27 +82,26 @@ def get_sorted_residual_info_list(folder:str, space:str) -> list[ResidualInfo]:
     pattern = os.path.join(folder, f"img{space}_s*_p*_[I|P|B].tiff")
     fnames = glob.glob(pattern)
     frame_info_list = []
-    
+
     for fname in fnames:
         stream_number = parse_stream_number(fname)
         picture_order = parse_picture_order(fname)
         frame_type = parse_frame_type(fname)
-        
-        frame_info = ResidualInfo(
-            fname=fname, 
-            stream_number=stream_number,
-            picture_order=picture_order,
-            frame_type=frame_type
-        )
+
+        frame_info = ResidualInfo(fname=fname,
+                                  stream_number=stream_number,
+                                  picture_order=picture_order,
+                                  frame_type=frame_type)
 
         frame_info_list.append(frame_info)
-    
+
     # make sure every stream number is unique
     stream_numbers = [fi.stream_number for fi in frame_info_list]
-    assert len(stream_numbers) == len(set(stream_numbers)), "Error: Duplicate stream numbers found!"
+    assert len(stream_numbers) == len(
+        set(stream_numbers)), "Error: Duplicate stream numbers found!"
 
     # step 1: sort by stream number
-    frame_info_list.sort(key=lambda x : x.stream_number)
+    frame_info_list.sort(key=lambda x: x.stream_number)
 
     # step 2: divide into GOPs, reorder picture orders within each GOP
     picture_orders = [fi.picture_order for fi in frame_info_list]
@@ -121,9 +126,10 @@ def get_sorted_residual_info_list(folder:str, space:str) -> list[ResidualInfo]:
         global_picture_orders.append(ranks + picture_order_offset)
         picture_order_offset += len(ranks)
     global_picture_orders = np.concatenate(global_picture_orders)
-    
+
     # step 4: sort frame_info_list according to global picture orders
-    frame_info_list = np.array(frame_info_list)[np.argsort(global_picture_orders)].tolist()
+    frame_info_list = np.array(frame_info_list)[np.argsort(
+        global_picture_orders)].tolist()
     for i, fi in enumerate(frame_info_list):
         fi.display_number = i
 

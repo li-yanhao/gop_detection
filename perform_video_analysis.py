@@ -17,7 +17,7 @@ SAVE_VISUALIZED_PATH = None
 
 
 
-def perform_video_analysis(video_path:str, 
+def perform_video_analysis(video_path:str,
                            d:int, space:str, epsilon:float,
                            roi_mask=None,
                            max_num:int=-1,
@@ -33,7 +33,7 @@ def perform_video_analysis(video_path:str,
 
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
-    h264_fname = os.path.join(OUTPUT_ROOT, os.path.basename(video_path).split('.')[0] + ".264") 
+    h264_fname = os.path.join(OUTPUT_ROOT, os.path.basename(video_path).split('.')[0] + ".264")
 
     # convert the video to h264
     ret = convert_to_h264(video_path, out_fname=h264_fname)
@@ -41,14 +41,14 @@ def perform_video_analysis(video_path:str,
     if not ret:
         print("Conversion to H264 failed!")
         return None, None
-    
+
     ret_decode_frames, ret_decode_residuals = False, False
     frame_folder, residual_folder = None, None
     def decode_frames_task():
         nonlocal ret_decode_frames, frame_folder
         print("Decoding frames ...\n")
         ret_decode_frames, frame_folder = decode_frames(h264_fname, OUTPUT_ROOT)
-        
+
 
     def decode_residuals_task():
         nonlocal ret_decode_residuals, residual_folder
@@ -162,7 +162,7 @@ def main():
         roi_mask = None
 
     frame_fname_list, residual_fname_list = perform_video_analysis(args.video_path, d=args.d, space=args.space, epsilon=args.epsilon, roi_mask=roi_mask, output_folder=output_folder)
-    
+
     print(f"Detection finished. All the results are saved in: {output_folder}\n")
 
 

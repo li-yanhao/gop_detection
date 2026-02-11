@@ -7,27 +7,27 @@ import tkinter as tk
 import cv2
 import numpy as np
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
 from matplotlib.widgets import PolygonSelector
+from datetime import datetime
 
 from src.residual_info import get_sorted_residual_info_list
 from src.acontrario import AContrarioAnalyser
-from src.util import (
-    decode_frames, decode_residuals, convert_to_h264, 
-    pad_and_crop, get_rotation, correct_rotation
-)
+from src.util import (decode_frames, decode_residuals, convert_to_h264,
+                      pad_and_crop, get_rotation, correct_rotation)
 from src.residual_info import read_one_residual
-from datetime import datetime
-
 
 OUTPUT_ROOT = "tmp"
 SAVE_VISUALIZED_PATH = None
 
 
-def perform_video_analysis(video_path:str, 
-                           d:int, space:str, epsilon:float,
+def perform_video_analysis(video_path: str,
+                           d: int,
+                           space: str,
+                           epsilon: float,
                            roi_mask=None,
-                           max_num:int=-1,
-                           output_folder:str=None):
+                           max_num: int = -1,
+                           output_folder: str = None):
     """ Perform video analysis on the given video file.
     :param video_path: Path to the input video file.
     :param d: Parameter d for A Contrario analysis.
@@ -39,7 +39,9 @@ def perform_video_analysis(video_path:str,
 
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
-    h264_fname = os.path.join(OUTPUT_ROOT, os.path.basename(video_path).split('.')[0] + ".264") 
+    h264_fname = os.path.join(
+        OUTPUT_ROOT,
+        os.path.basename(video_path).split('.')[0] + ".264")
 
     # convert the video to h264
     ret = convert_to_h264(video_path, out_fname=h264_fname)
@@ -47,19 +49,21 @@ def perform_video_analysis(video_path:str,
     if not ret:
         print("Conversion to H264 failed!")
         return None, None
-    
+
     ret_decode_frames, ret_decode_residuals = False, False
     frame_folder, residual_folder = None, None
+
     def decode_frames_task():
         nonlocal ret_decode_frames, frame_folder
         print("Decoding frames ...\n")
-        ret_decode_frames, frame_folder = decode_frames(h264_fname, OUTPUT_ROOT)
-        
+        ret_decode_frames, frame_folder = decode_frames(
+            h264_fname, OUTPUT_ROOT)
 
     def decode_residuals_task():
         nonlocal ret_decode_residuals, residual_folder
         print("Decoding residuals ...\n")
-        ret_decode_residuals, residual_folder = decode_residuals(h264_fname, OUTPUT_ROOT)
+        ret_decode_residuals, residual_folder = decode_residuals(
+            h264_fname, OUTPUT_ROOT)
         if not ret_decode_residuals:
             print("Decoding residuals failed!\n")
 
@@ -85,12 +89,18 @@ def perform_video_analysis(video_path:str,
         return None, None
 
     # 2. A Contrario analysis
-    analyzer = AContrarioAnalyser(epsilon=epsilon, d=d, start_at_0=False,
-                                  space=space, max_num=max_num)
+    analyzer = AContrarioAnalyser(epsilon=epsilon,
+                                  d=d,
+                                  start_at_0=False,
+                                  space=space,
+                                  max_num=max_num)
 
-    residual_info_list = get_sorted_residual_info_list(folder=residual_folder, space=space)
+    residual_info_list = get_sorted_residual_info_list(folder=residual_folder,
+                                                       space=space)
 
-    analyzer.load_frame_info(frame_info_list=residual_info_list, space=space, roi_mask=roi_mask)
+    analyzer.load_frame_info(frame_info_list=residual_info_list,
+                             space=space,
+                             roi_mask=roi_mask)
 
     analyzer.preprocess()
 
@@ -102,10 +112,14 @@ def perform_video_analysis(video_path:str,
     else:
         print("\033[92mDetected candidates (by A Contrario analysis):\033[0m")
         for (p, b, NFA) in detections:
-            print(f"\033[92m  Periodicity = {p}, Offset = {b}, NFA = {NFA}\033[0m")
+            print(
+                f"\033[92m  Periodicity = {p}, Offset = {b}, NFA = {NFA}\033[0m"
+            )
         print()
 
-        print("\033[92mThe most prominent candidate: periodicity = {}, NFA = {}\033[0m".format(analyzer.detected_result[0], analyzer.detected_result[2]))
+        print(
+            "\033[92mThe most prominent candidate: periodicity = {}, NFA = {}\033[0m"
+            .format(analyzer.detected_result[0], analyzer.detected_result[2]))
         print()
 
     # Save the results to txt if output_folder is given
@@ -116,7 +130,8 @@ def perform_video_analysis(video_path:str,
                 f.write(f"Periodicity = {p}, Offset = {b}, NFA = {NFA}\n")
         print(f"Detections are saved to: {result_txt_path}\n")
 
-    visualize_path = os.path.join(output_folder, "histogram.png") if output_folder is not None else None
+    visualize_path = os.path.join(
+        output_folder, "histogram.png") if output_folder is not None else None
     analyzer.visualize(save_fname=visualize_path)
 
     frame_fname_list = glob.glob(os.path.join(frame_folder, "*.png"))
@@ -124,20 +139,22 @@ def perform_video_analysis(video_path:str,
 
     residual_fname_list = [ri.fname for ri in residual_info_list]
 
-    assert len(frame_fname_list) == len(residual_fname_list), "Number of frames ({}) and residuals ({}) do not match!".format(len(frame_fname_list), len(residual_fname_list))
-
+    assert len(frame_fname_list) == len(
+        residual_fname_list
+    ), "Number of frames ({}) and residuals ({}) do not match!".format(
+        len(frame_fname_list), len(residual_fname_list))
 
     return frame_fname_list, residual_fname_list
 
 
 # --------------------------------------------------------
 
+
 def select_polygon_roi(video_path):
     """
     Opens a Matplotlib window to select a polygon ROI.
     Returns a mask (NumPy array) or None.
     """
-    import matplotlib.pyplot as plt
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -166,7 +183,8 @@ def select_polygon_roi(video_path):
     ax.set_title("Select Polygon ROI - Close the window when done")
 
     ax.axis('off')  # Turn off the x and y axis
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Eliminate blank borders
+    fig.subplots_adjust(left=0, right=1, top=1,
+                        bottom=0)  # Eliminate blank borders
     polygon_selector = PolygonSelector(ax, onselect, useblit=True)
 
     plt.show()
@@ -190,7 +208,13 @@ def select_polygon_roi(video_path):
 
 
 class ResultViewer:
-    def __init__(self, master, frame_fname_list, residual_fname_list, rotation, roi_mask=None):
+
+    def __init__(self,
+                 master,
+                 frame_fname_list,
+                 residual_fname_list,
+                 rotation,
+                 roi_mask=None):
         ''' A Tkinter-based GUI to view video analysis results.
         param master: the Tkinter root window
         param frame_fname_list: list of frame image filenames, already sorted in the display order
@@ -202,7 +226,7 @@ class ResultViewer:
         self.master = master
         master.title("Video Analysis Results")
         master.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
+
         self.frame_fname_list = frame_fname_list
         self.residual_fname_list = residual_fname_list
         self.current_frame_index = 0
@@ -212,7 +236,7 @@ class ResultViewer:
         self.roi_mask = roi_mask
 
         self.roi_residual_mask = roi_mask
-        
+
         if roi_mask is not None:
             # adjust the size of roi_residual_mask to match the residual image size
             residual_img = read_one_residual(residual_fname_list[0])
@@ -238,21 +262,24 @@ class ResultViewer:
         # Frame Navigation Buttons
         nav_frame = tk.Frame(view_frame)
         nav_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
-        
+
         # Move navigation buttons to the bottom of the window
         nav_frame = tk.Frame(master)
         nav_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
 
-        tk.Button(nav_frame, text="<- Previous Frame", command=self.prev_frame).pack(side=tk.LEFT, padx=10)
+        tk.Button(nav_frame, text="<- Previous Frame",
+                  command=self.prev_frame).pack(side=tk.LEFT, padx=10)
         self.master.bind("<Left>", lambda event: self.prev_frame())
-        self.frame_index_label = tk.Label(nav_frame, text=f"Frame 1 / {len(self.frame_fname_list)}")
+        self.frame_index_label = tk.Label(
+            nav_frame, text=f"Frame 1 / {len(self.frame_fname_list)}")
         self.frame_index_label.pack(side=tk.LEFT, padx=10)
 
-        tk.Button(nav_frame, text="Next Frame ->", command=self.next_frame).pack(side=tk.RIGHT, padx=10)
+        tk.Button(nav_frame, text="Next Frame ->",
+                  command=self.next_frame).pack(side=tk.RIGHT, padx=10)
         self.master.bind("<Right>", lambda event: self.next_frame())
 
         self.update_frame()
-        
+
     def prev_frame(self):
         if self.current_frame_index > 0:
             self.current_frame_index -= 1
@@ -268,8 +295,9 @@ class ResultViewer:
 
         # Load the frame image in RGB
         frame_fname = self.frame_fname_list[self.current_frame_index]
-        img_rgb = cv2.cvtColor(cv2.imread(frame_fname, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
-        
+        img_rgb = cv2.cvtColor(cv2.imread(frame_fname, cv2.IMREAD_COLOR),
+                               cv2.COLOR_BGR2RGB)
+
         # correct rotation if needed
         img_rgb = correct_rotation(img_rgb, self.rotation)
 
@@ -289,14 +317,20 @@ class ResultViewer:
 
         # convert img_residual to grayscale 0-255
         MAX_RESIDUAL_VAL = 10
-        img_residual = np.clip(np.abs(img_residual), 0, MAX_RESIDUAL_VAL) * (255.0 / MAX_RESIDUAL_VAL)
+        img_residual = np.clip(np.abs(img_residual), 0,
+                               MAX_RESIDUAL_VAL) * (255.0 / MAX_RESIDUAL_VAL)
         img_residual = img_residual.astype(np.uint8)
         # Convert grayscale residual to RGB for consistent display
         img_residual_rgb = cv2.cvtColor(img_residual, cv2.COLOR_GRAY2RGB)
-        
+
         # Resize both images to half their original size
-        img_rgb = cv2.resize(img_rgb, (img_rgb.shape[1] // 2, img_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
-        img_residual_rgb = cv2.resize(img_residual_rgb, (img_residual_rgb.shape[1] // 2, img_residual_rgb.shape[0] // 2), interpolation=cv2.INTER_CUBIC)
+        img_rgb = cv2.resize(img_rgb,
+                             (img_rgb.shape[1] // 2, img_rgb.shape[0] // 2),
+                             interpolation=cv2.INTER_CUBIC)
+        img_residual_rgb = cv2.resize(
+            img_residual_rgb,
+            (img_residual_rgb.shape[1] // 2, img_residual_rgb.shape[0] // 2),
+            interpolation=cv2.INTER_CUBIC)
 
         # crop both images to the same height and width (minimum of the two)
         height = min(img_rgb.shape[0], img_residual_rgb.shape[0])
@@ -315,8 +349,10 @@ class ResultViewer:
 
         # Update Label and Index Text
         self.image_label.config(image=self.img_tk)
-        self.frame_index_label.config(text=f"Frame {self.current_frame_index + 1} / {len(self.frame_fname_list)}")
-
+        self.frame_index_label.config(
+            text=
+            f"Frame {self.current_frame_index + 1} / {len(self.frame_fname_list)}"
+        )
 
     def on_closing(self):
         # Optional: Clean up resources
@@ -325,24 +361,42 @@ class ResultViewer:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Perform video analysis with optional ROI selection.")
-    parser.add_argument("video_path", type=str, help="Path to the video file to analyze.")
-    parser.add_argument("--d", type=int, help="number of neighbors to validate a peak residual (default: 3)", default=3)
-    parser.add_argument("--space", type=str, help="color space used for detection (default: Y)", default="Y")
-    parser.add_argument("--epsilon", type=float, help="threshold for the Number of False Alarms (NFA), (default: 0.05)", default=0.05)
-    parser.add_argument("--out_folder", type=str, help="output folder for results (default: results)", default="results")
-
+    parser = argparse.ArgumentParser(
+        description="Perform video analysis with optional ROI selection.")
+    parser.add_argument("video_path",
+                        type=str,
+                        help="Path to the video file to analyze.")
+    parser.add_argument(
+        "--d",
+        type=int,
+        help="number of neighbors to validate a peak residual (default: 3)",
+        default=3)
+    parser.add_argument("--space",
+                        type=str,
+                        help="color space used for detection (default: Y)",
+                        default="Y")
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        help="threshold for the Number of False Alarms (NFA), (default: 0.05)",
+        default=0.05)
+    parser.add_argument("--out_folder",
+                        type=str,
+                        help="output folder for results (default: results)",
+                        default="results")
 
     args = parser.parse_args()
 
     # --- Step 2: Ask for ROI and select polygon ---
     root = tk.Tk()
-    root.withdraw() # Hide the main root window for now
+    root.withdraw()  # Hide the main root window for now
 
     roi_prompt = tk.Toplevel(root)
     roi_prompt.title("Region of Interest")
-    tk.Label(roi_prompt, text="Do you want to define a Region of Interest (ROI)?").pack(padx=20, pady=10)
-    
+    tk.Label(roi_prompt,
+             text="Do you want to define a Region of Interest (ROI)?").pack(
+                 padx=20, pady=10)
+
     roi_mask = None
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -362,17 +416,29 @@ def main():
         # --- Step 3: Run Core Analysis ---
         # unrotate the roi_mask
 
-        roi_mask_unrotated = correct_rotation(roi_mask.astype(np.uint8), (-rotation) % 360).astype(bool) if roi_mask is not None else None
-        frame_fname_list, residual_fname_list = perform_video_analysis(args.video_path, d=args.d, space=args.space, epsilon=args.epsilon, roi_mask=roi_mask_unrotated, output_folder=output_folder)
+        roi_mask_unrotated = correct_rotation(
+            roi_mask.astype(np.uint8),
+            (-rotation) % 360).astype(bool) if roi_mask is not None else None
+        frame_fname_list, residual_fname_list = perform_video_analysis(
+            args.video_path,
+            d=args.d,
+            space=args.space,
+            epsilon=args.epsilon,
+            roi_mask=roi_mask_unrotated,
+            output_folder=output_folder)
 
-        print(f"Detection finished. All the results are saved in: {output_folder}\n")
-        
-        
+        print(
+            f"Detection finished. All the results are saved in: {output_folder}\n"
+        )
+
         # --- Step 4: Launch Visualization GUI ---
         viewer_root = tk.Tk()
-        app = ResultViewer(viewer_root, frame_fname_list, residual_fname_list, rotation, roi_mask=roi_mask)
+        app = ResultViewer(viewer_root,
+                           frame_fname_list,
+                           residual_fname_list,
+                           rotation,
+                           roi_mask=roi_mask)
         viewer_root.mainloop()
-
 
     def on_yes():
         print("User chose to define an ROI.")
@@ -381,11 +447,12 @@ def main():
         roi_prompt.destroy()
         # Launch OpenCV-based polygon selector
         roi_mask = select_polygon_roi(args.video_path)
-        
+
         # save the roi_mask to output_folder
         if roi_mask is not None:
             roi_mask_path = os.path.join(output_folder, "mask.png")
-            Image.fromarray((roi_mask * 255).astype(np.uint8)).save(roi_mask_path)
+            Image.fromarray(
+                (roi_mask * 255).astype(np.uint8)).save(roi_mask_path)
             print(f"ROI mask saved to: {roi_mask_path}\n")
 
         start_analysis_and_viewer()
@@ -401,19 +468,18 @@ def main():
 
         root.destroy()
 
+    tk.Button(roi_prompt, text="Yes (Define Polygon)",
+              command=on_yes).pack(side=tk.LEFT, padx=10, pady=10)
+    tk.Button(roi_prompt, text="No (Analyze Full Frame)",
+              command=on_no).pack(side=tk.RIGHT, padx=10, pady=10)
 
-    tk.Button(roi_prompt, text="Yes (Define Polygon)", command=on_yes).pack(side=tk.LEFT, padx=10, pady=10)
-    tk.Button(roi_prompt, text="No (Analyze Full Frame)", command=on_no).pack(side=tk.RIGHT, padx=10, pady=10)
-    
     # Wait for ROI prompt to be handled
     root.mainloop()
-    
 
 
 if __name__ == "__main__":
     print("Starting application...\n")
     main()
-
 
 # Usage:
 #   python perform_video_analysis_gui.py path/to/video.mp4
