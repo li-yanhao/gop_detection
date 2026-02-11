@@ -1,30 +1,34 @@
 import os
 import subprocess
+import sys
 
 import numpy as np
 import ffmpeg
 import cv2
 
+# Define constant for temporary file
 OUTPUT_JM = "test_dec.yuv"
 
-import sys
 
 def get_bin_path(bin_name):
-    # 如果是 PyInstaller 打包后的运行环境
+    # If the program is running in a PyInstaller bundle, the binary files are expected to be in the "dist_bin" folder under the temporary directory sys._MEIPASS. Otherwise, we assume the binary files are in the "dist_bin" folder under the project root.
     if hasattr(sys, '_MEIPASS'):
         base_path = os.path.join(sys._MEIPASS, "dist_bin")
     else:
-        raise Exception("Error: The binary files (ffmpeg/ldecod) are not found! Please make sure you have compiled the JM software and put the ffmpeg/ldecod.exe in the 'dist_bin' folder under the project root.")
+        raise Exception(
+            "Error: The binary files (ffmpeg/ldecod) are not found! Please make sure you have compiled the JM software and put the ffmpeg/ldecod.exe in the 'dist_bin' folder under the project root."
+        )
 
     return os.path.join(base_path, bin_name + ".exe")
 
-# 使用示例：
-ldecod_exe = get_bin_path("ldecod")
-ffmpeg_exe = get_bin_path("ffmpeg")
-ffprobe_exe = get_bin_path("ffprobe")
+
+# Define the paths to the binary files
+LDECOD_EXE = get_bin_path("ldecod")
+FFMPEG_EXE = get_bin_path("ffmpeg")
+FFPROBE_EXE = get_bin_path("ffprobe")
 
 
-def convert_to_h264(vid_fname:str, out_fname:str):
+def convert_to_h264(vid_fname: str, out_fname: str):
     """ Convert the input video to h264 format.
     param vid_fname: input video filename
     param out_fname: output h264 video filename
@@ -32,8 +36,11 @@ def convert_to_h264(vid_fname:str, out_fname:str):
     """
 
     # 1. Verify the video is encoded by h264
-    ffprobe_command = f"{ffprobe_exe} -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
-    std_msg = subprocess.run(ffprobe_command, shell=True, capture_output=True, text=True)
+    ffprobe_command = f"{FFPROBE_EXE} -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {vid_fname}"
+    std_msg = subprocess.run(ffprobe_command,
+                             shell=True,
+                             capture_output=True,
+                             text=True)
     found_codec = std_msg.stdout.strip()
 
     if std_msg.returncode != 0 or not found_codec:
@@ -41,21 +48,28 @@ def convert_to_h264(vid_fname:str, out_fname:str):
         if std_msg.stderr:
             print(f"ffprobe error: {std_msg.stderr}")
         else:
-            print("ffprobe is not available. The package may be incomplete or ffprobe is not in the system PATH.")
+            print(
+                "ffprobe is not available. The package may be incomplete or ffprobe is not in the system PATH."
+            )
         return False
 
     if found_codec != "h264":
-        print(f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec '{found_codec}' is found!")
+        print(
+            f"Error: The input video '{vid_fname}' needs to be encoded by h264, but codec '{found_codec}' is found!"
+        )
         return False
 
     # 2. Convert the video file to .h264 file.
     # out_fname = os.path.join(TMP_PATH, H264_VID_FNAME)
-    convert_command = f"{ffmpeg_exe} -i {vid_fname} -an -vcodec copy {out_fname} -y"
-    std_msg = subprocess.run(convert_command, shell=True, capture_output=True, text=True)
+    convert_command = f"{FFMPEG_EXE} -i {vid_fname} -an -vcodec copy {out_fname} -y"
+    std_msg = subprocess.run(convert_command,
+                             shell=True,
+                             capture_output=True,
+                             text=True)
     return True
 
 
-def decode_residuals(vid_fname:str, output_root:str):
+def decode_residuals(vid_fname: str, output_root: str):
     """ Decode the prediction residuals from a h264 video using JM software.
     :param vid_fname: the filename of a H264 video.
     :param output_root: the root folder to save the output residuals. The video's residuals will be saved in a sub-folder named by the video filename.
@@ -64,16 +78,20 @@ def decode_residuals(vid_fname:str, output_root:str):
 
     assert vid_fname.endswith("264")
 
-    output_folder = os.path.join(output_root, os.path.basename(vid_fname).split('.')[0], "residuals")
+    output_folder = os.path.join(output_root,
+                                 os.path.basename(vid_fname).split('.')[0],
+                                 "residuals")
 
     os.makedirs(output_folder, exist_ok=True)
 
-
     # 1.2 jm extracts intermediate files
-    inspect_command = f"{ldecod_exe} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
+    inspect_command = f"{LDECOD_EXE} -i {vid_fname} -o {OUTPUT_JM} -inspect {output_folder}"
 
     # print(inspect_command)
-    std_msg = subprocess.run(inspect_command, shell=True, capture_output=True, text=True)
+    std_msg = subprocess.run(inspect_command,
+                             shell=True,
+                             capture_output=True,
+                             text=True)
 
     # remove the output yuv file whether it exists or not
     if os.path.exists(OUTPUT_JM):
@@ -84,13 +102,14 @@ def decode_residuals(vid_fname:str, output_root:str):
         print(f"Decoding {vid_fname} failed! (from JM software)")
         return False, None
 
-    print("Prediction residuals are saved in: ", output_folder, "   (can be deleted after analysis)")
+    print("Prediction residuals are saved in: ", output_folder,
+          "   (can be deleted after analysis)")
     print()
 
     return True, output_folder
 
 
-def decode_frames(vid_fname:str, output_root:str):
+def decode_frames(vid_fname: str, output_root: str):
     """ Decode the frames from a h264 video using ffmpeg.
     :param vid_fname: the filename of a H264 video.
     :param output_root: the root folder to save the output frames. The video's frames will be saved in a sub-folder named by the video filename.
@@ -99,18 +118,24 @@ def decode_frames(vid_fname:str, output_root:str):
 
     assert vid_fname.endswith("264")
 
-    output_folder = os.path.join(output_root, os.path.basename(vid_fname).split('.')[0], "frames")
+    output_folder = os.path.join(output_root,
+                                 os.path.basename(vid_fname).split('.')[0],
+                                 "frames")
 
     os.makedirs(output_folder, exist_ok=True)
-    
+
     # ffmpeg decodes images
     img_out_pattern = os.path.join(output_folder, "img%06d.png")
-    ffmpeg_command = f"{ffmpeg_exe} -i {vid_fname} -start_number 0 {img_out_pattern}"
+    ffmpeg_command = f"{FFMPEG_EXE} -i {vid_fname} -start_number 0 {img_out_pattern}"
     # print(ffmpeg_command)
-    std_msg = subprocess.run(ffmpeg_command, shell=True, capture_output=True, text=True)
+    std_msg = subprocess.run(ffmpeg_command,
+                             shell=True,
+                             capture_output=True,
+                             text=True)
 
     print(f"Decoding finished successfully.\n")
-    print("Frames are saved in: ", output_folder, "   (can be deleted after analysis)")
+    print("Frames are saved in: ", output_folder,
+          "   (can be deleted after analysis)")
     print()
 
     return True, output_folder
@@ -127,22 +152,27 @@ def pad_and_crop(img, target_shape):
 
     # Pad in height if needed
     if target_h - h > 0:
-        img = np.pad(img, ((0, target_h - h), (0, 0)), mode='constant', constant_values=0)
+        img = np.pad(img, ((0, target_h - h), (0, 0)),
+                     mode='constant',
+                     constant_values=0)
     elif target_h - h < 0:
         img = img[:target_h, :]
-    
+
     # Pad in width if needed
     if target_w - w > 0:
-        img = np.pad(img, ((0, 0), (0, target_w - w)), mode='constant', constant_values=0)
+        img = np.pad(img, ((0, 0), (0, target_w - w)),
+                     mode='constant',
+                     constant_values=0)
     elif target_w - w < 0:
         img = img[:, :target_w]
 
     return img
 
+
 def get_rotation(video_file_path: str):
     try:
         # fetch video metadata
-        metadata = ffmpeg.probe(video_file_path)
+        metadata = ffmpeg.probe(video_file_path, cmd=FFPROBE_EXE)
     except Exception as e:
         print(f'failed to read video: {video_file_path}\n'
               f'{e}\n',
@@ -150,7 +180,10 @@ def get_rotation(video_file_path: str):
               flush=True)
         return None
     # extract rotate info from metadata
-    video_stream = next((stream for stream in metadata['streams'] if stream['codec_type'] == 'video'), None)
+    video_stream = next(
+        (stream
+         for stream in metadata['streams'] if stream['codec_type'] == 'video'),
+        None)
     rotation = int(video_stream.get('tags', {}).get('rotate', 0))
     # extract rotation info from side_data_list, popular for Iphones
     if len(video_stream.get('side_data_list', [])) != 0:
