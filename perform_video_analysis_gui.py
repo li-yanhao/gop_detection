@@ -357,7 +357,7 @@ def main():
 
     # This prevents the program from exiting before the ROI prompt is handled
     def start_analysis_and_viewer():
-        rotation = get_rotation(args.video_path)
+        rotation = get_rotation(os.path.abspath(args.video_path))
 
         # --- Step 3: Run Core Analysis ---
         # unrotate the roi_mask
