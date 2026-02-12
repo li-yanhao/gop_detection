@@ -267,11 +267,18 @@ The most prominent candidate: periodicity = 30, NFA = 7.679586275143973e-13
 Download the executives `video_analysis_cmd.exe` and `video_analysis_gui.exe` from [Releases](https://github.com/li-yanhao/gop_detection/releases), and run the program with the following command in Command Prompt or PowerShell:
 ```Powershell
 ## For GUI
-video_analysis_gui.exe [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--mask_path MASK_PATH] [--out_folder OUT_FOLDER] video_path
+video_analysis_gui.exe [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--out_folder OUT_FOLDER] video_path
 
 ## For CLI
 video_analysis_cmd.exe [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--mask_path MASK_PATH] [--out_folder OUT_FOLDER] video_path
 ```
+where
+* `d`: number of neighbors to validate a peak residual (default: 3)
+* `space`: color space used for detection, accepted values are `{'Y', 'U', 'V'}` (default: `'Y'`)
+* `epsilon`: threshold for the Number of False Alarms (NFA) (default: 0.05)
+* `mask_path`: path to the binary ROI mask image in `.png`. If the mask is not in the same shape as the video frames, it will be readjusted to the video frame size by zero padding or cropping. Only valid for CLI version. (default: `None`)
+* `out_folder`: output folder for results (default: `results/`)
+
 
 ## 🗑️ Large temporary files
 
