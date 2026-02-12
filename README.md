@@ -262,7 +262,7 @@ Detected candidates (by A Contrario analysis):
 The most prominent candidate: periodicity = 30, NFA = 7.679586275143973e-13
 ```
 
-## Windows users: 
+## 🖥️ Windows users
 
 Download the executives `video_analysis_cmd.exe` and `video_analysis_gui.exe` from [Releases](https://github.com/li-yanhao/gop_detection/releases), and run the program with the following command in Command Prompt or PowerShell:
 ```Powershell
