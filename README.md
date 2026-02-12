@@ -262,14 +262,23 @@ Detected candidates (by A Contrario analysis):
 The most prominent candidate: periodicity = 30, NFA = 7.679586275143973e-13
 ```
 
+## Windows users: 
 
+Download the executives `video_analysis_cmd.exe` and `video_analysis_gui.exe` from [Releases](https://github.com/li-yanhao/gop_detection/releases), and run the program with the following command in Command Prompt or PowerShell:
+```Powershell
+## For GUI
+video_analysis_gui.exe [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--mask_path MASK_PATH] [--out_folder OUT_FOLDER] video_path
+
+## For CLI
+video_analysis_cmd.exe [-h] [--d D] [--space SPACE] [--epsilon EPSILON] [--mask_path MASK_PATH] [--out_folder OUT_FOLDER] video_path
+```
 
 ## 🗑️ Large temporary files
 
 At each run the program decodes the full frames and prediction residuals in a temporary folder under `gop_detection/tmp/`, then 
 detects double compression using these data. The intermediate
 data can take several GB depending on the resolution and
-the length of the video. You can safely delete the `tmp/` folder after running the program.
+The length of the video. **You can safely delete the `tmp/` folder after running the program in order to free up disk space.**
 
 ## 📖 Citation
 If you find this code useful in your research, please cite the following paper:
